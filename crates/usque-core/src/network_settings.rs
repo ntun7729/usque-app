@@ -18,6 +18,8 @@ macro_rules! network_fields {
             "transport" => transport,
             "tls_fingerprint" => tls_fingerprint,
             "data_plane" => data_plane,
+            "warp_underlay" => warp_underlay,
+            "native_warp_profile" => native_warp_profile,
             "congestion_control" => congestion_control,
             "endpoint.ipv4" => endpoint.ipv4,
             "endpoint.ipv6" => endpoint.ipv6,

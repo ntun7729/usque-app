@@ -73,6 +73,8 @@ pub fn classify_reconfigure(previous: &Profile, next: &Profile) -> ReconfigureCl
     }
 
     let cold = previous.data_plane != next.data_plane
+        || previous.warp_underlay != next.warp_underlay
+        || previous.native_warp_profile != next.native_warp_profile
         || previous.data_plane == crate::DataPlaneMode::L4Proxy
             && previous.frontends.tunnel != next.frontends.tunnel
         || previous.transport != next.transport

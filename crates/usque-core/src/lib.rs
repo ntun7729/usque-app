@@ -30,7 +30,8 @@ pub use config::{
     MAX_GEO_DIRECT_COUNTRIES, ManagedEndpointIps, OperatingMode, PendingIdentityReplacement,
     Profile, ProxyAuthCredentials, ProxyDnsMode, ProxySettings, SHARED_NETWORK_SECRET_ID,
     SharedNetworkSettings, TlsFingerprint, TransportPolicy, WarpDnsMode, WarpDnsSettings,
-    WarpUnderlay, ZERO_TRUST_L4_SNI, l4_server_name, validate_proxy_password, validate_proxy_username,
+    WarpUnderlay, ZERO_TRUST_L4_SNI, l4_server_name, validate_proxy_password,
+    validate_proxy_username,
 };
 pub use config::{RoutingAction, RoutingMatch, RoutingRule, RoutingSettings};
 pub use diagnostics::{

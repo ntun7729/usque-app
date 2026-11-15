@@ -1,15 +1,15 @@
 # Android dual WARP transport and Proton Guest — design
 
-**Status:** Approved scope; implementation in progress. **Platform:** Android first. **Brand/UI:** keep original Usque design.
+**Status:** Approved scope; implementation in progress. **Platform:** Android first. **Brand/UI:** keep original Usque design. **Chain priority:** preserve and validate ALL seven chain source types equally; Proton Guest is frequently used but is not privileged over other exits.
 
 ## Desired behavior
 
 - Retain the current MASQUE CONNECT-IP (H3/H2) and L4 modes unchanged, including account profiles and DNS/routing policy.
 - Add **native WARP WireGuard over UDP** as an explicit outer transport. It must not tunnel over MASQUE. A WireGuard chain exit is a different concept and remains supported.
 - Continue to support VPN/TUN and HTTP/SOCKS5 proxy frontends, per-app exclusions, protected physical sockets, kill switch and existing routing.
-- Preserve every chain-exit source (custom WireGuard, OpenVPN, VPN Gate, Proton VPN Guest, WARP-via-WireGuard). Prioritize **Proton Guest**.
-- Permit: Application -> MASQUE WARP -> Proton WG -> Internet; Application -> native WG WARP -> Proton WG -> Internet; Application -> either WARP without chain.
-- Proton Guest login, verification, server list, certificate renewal, encrypted credential storage and logical server selection remain the same user experience.
+- Preserve all seven chain-exit sources: OpenVPN, custom WireGuard, WARP via WireGuard, Proton VPN Guest, VPN Gate, HTTP CONNECT, SOCKS5. Every supported source must continue to work under both outer WARP modes, subject to verified UDP support where required.
+- Permit: Application -> MASQUE WARP -> ANY existing supported chain exit -> Internet; Application -> native WG WARP -> SAME chain exit -> Internet; Application -> either WARP without chain.
+- All existing chain configuration import, secrets, endpoint override, per-source DNS, and connect/reconnect behavior must remain unchanged. Proton Guest login, verification, server list, certificate renewal, encrypted credential storage and logical server selection retain their current user experience.
 - Native WG transport selection must fail closed on invalid credentials, unreachable endpoints, connection loss, stale network generation and chain authorization failure. Never silently bypass Proton when a Proton chain is selected.
 - Make no performance promises: handshake, successful DNS, end-to-end egress, reconnection, leak protection and throughput each require explicit validation.
 
@@ -45,5 +45,5 @@
 - **M0:** Branch, plan, isolated CI runner targeting the fork.
 - **M1:** Core transport contract and protected native WireGuard UDP transport tested independently.
 - **M2:** Android native WARP selection integrated into Rust and Android service while MASQUE remains default.
-- **M3:** Proton Guest and other chain exits supported over both outer transports.
+- **M3:** All seven chain sources supported and tested over both outer transports, including Proton Guest.
 - **M4:** Flutter mode selection in existing Usque design; Android experimental APK and live validation.

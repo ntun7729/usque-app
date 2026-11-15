@@ -35,6 +35,8 @@ jobs:
           set -euo pipefail
           rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
           rustup default 1.97.1
+      - name: WARP configuration contract tests
+        run: cargo test -p usque-core warp_underlay --locked
       - name: New native WireGuard UDP tests
         run: cargo test -p usque-transport native_warp_udp --features wireguard --locked
       - name: Rustfmt

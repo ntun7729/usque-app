@@ -23,9 +23,9 @@ mod initial_identity;
 mod network;
 mod routing;
 mod tls_fingerprint;
-mod warp_underlay;
 #[cfg(test)]
 mod warp_dns_tests;
+mod warp_underlay;
 
 pub use account::{Account, ManagedEndpointIps};
 pub use congestion::CongestionControlAlgorithm;

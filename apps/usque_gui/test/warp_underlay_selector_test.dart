@@ -4,10 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:usque/core/usque_theme.dart';
 import 'package:usque/screens/advanced_settings_screen.dart';
 import 'package:usque/state/app_controller.dart';
-
-import 'app_test.dart' show FakeEngineClient;
 import 'package:usque/models/app_models.dart';
 import 'package:usque/widgets/warp_underlay_selector.dart';
+
+import 'app_test.dart' show FakeEngineClient;
 
 void main() {
   testWidgets('advanced settings exposes the WARP carrier selector', (tester) async {

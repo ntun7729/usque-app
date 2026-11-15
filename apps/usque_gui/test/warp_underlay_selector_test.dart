@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:usque/core/usque_theme.dart';
 import 'package:usque/screens/advanced_settings_screen.dart';
 import 'package:usque/state/app_controller.dart';
 
@@ -15,6 +16,7 @@ void main() {
     await controller.initialize();
     addTearDown(controller.dispose);
     await tester.pumpWidget(MaterialApp(
+      theme: UsqueTheme.light(),
       home: AdvancedSettingsScreen(controller: controller),
     ));
     await tester.pump();

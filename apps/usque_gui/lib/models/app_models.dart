@@ -42,6 +42,18 @@ enum DataPlaneMode {
       values.where((mode) => mode.wireName == value).firstOrNull;
 }
 
+/// Outer WARP carrier; the chain exit is selected independently.
+enum WarpUnderlay {
+  masque('masque'),
+  nativeWireGuard('native_wireguard');
+
+  const WarpUnderlay(this.wireName);
+  final String wireName;
+
+  static WarpUnderlay? fromWire(Object? value) =>
+      values.where((mode) => mode.wireName == value).firstOrNull;
+}
+
 enum TransportPolicy { automatic, http3, http2 }
 
 enum TlsFingerprint {
@@ -887,6 +899,8 @@ class UsqueProfile {
     this.mode = OperatingMode.vpn,
     this.transport = TransportPolicy.automatic,
     this.dataPlane = DataPlaneMode.connectIp,
+    this.warpUnderlay = WarpUnderlay.masque,
+    this.nativeWarpProfile,
     this.congestionControl = CongestionControlAlgorithm.cubic,
     this.tlsFingerprint = TlsFingerprint.chrome155,
     this.ipPolicy = IpPolicy.automatic,
@@ -930,6 +944,8 @@ class UsqueProfile {
   final OperatingMode mode;
   final TransportPolicy transport;
   final DataPlaneMode dataPlane;
+  final WarpUnderlay warpUnderlay;
+  final ChainExitSettings? nativeWarpProfile;
   final CongestionControlAlgorithm congestionControl;
   final TlsFingerprint tlsFingerprint;
   final IpPolicy ipPolicy;
@@ -994,6 +1010,7 @@ class UsqueProfile {
       tlsFingerprint: TlsFingerprint.chrome155,
       transport: TransportPolicy.automatic,
       dataPlane: DataPlaneMode.connectIp,
+      warpUnderlay: WarpUnderlay.masque,
       ipPolicy: IpPolicy.automatic,
       endpointSelection: EndpointSelection.automatic,
       clearEndpointPresetRegion: true,
@@ -1019,6 +1036,9 @@ class UsqueProfile {
     OperatingMode? mode,
     TransportPolicy? transport,
     DataPlaneMode? dataPlane,
+    WarpUnderlay? warpUnderlay,
+    ChainExitSettings? nativeWarpProfile,
+    bool clearNativeWarpProfile = false,
     CongestionControlAlgorithm? congestionControl,
     TlsFingerprint? tlsFingerprint,
     IpPolicy? ipPolicy,
@@ -1059,6 +1079,10 @@ class UsqueProfile {
       mode: nextMode,
       transport: transport ?? this.transport,
       dataPlane: dataPlane ?? this.dataPlane,
+      warpUnderlay: warpUnderlay ?? this.warpUnderlay,
+      nativeWarpProfile: clearNativeWarpProfile
+          ? null
+          : nativeWarpProfile ?? this.nativeWarpProfile,
       congestionControl: congestionControl ?? this.congestionControl,
       tlsFingerprint: tlsFingerprint ?? this.tlsFingerprint,
       ipPolicy: ipPolicy ?? this.ipPolicy,
@@ -1098,6 +1122,9 @@ class UsqueProfile {
       'mode': modeFromFrontends(frontends).name,
       'transport': transport.name,
       'data_plane': dataPlane.wireName,
+      'warp_underlay': warpUnderlay.wireName,
+      if (nativeWarpProfile != null)
+        'native_warp_profile': nativeWarpProfile!.toMap(),
       'vpn_gate': vpnGate.toMap(),
       if (chainExit != null) 'chain_exit': chainExit!.toMap(),
       'congestion_control': congestionControl.name,
@@ -1188,6 +1215,13 @@ class UsqueProfile {
           ? DataPlaneMode.fromWire(map['data_plane']) ??
                 (throw const FormatException('Invalid data_plane'))
           : DataPlaneMode.connectIp,
+      warpUnderlay: map.containsKey('warp_underlay')
+          ? WarpUnderlay.fromWire(map['warp_underlay']) ??
+                (throw const FormatException('Invalid warp_underlay'))
+          : WarpUnderlay.masque,
+      nativeWarpProfile: map['native_warp_profile'] is Map
+          ? ChainExitSettings.fromMap(map['native_warp_profile'] as Map)
+          : null,
       congestionControl: map.containsKey('congestion_control')
           ? _enumByName(
               CongestionControlAlgorithm.values,

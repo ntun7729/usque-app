@@ -1114,6 +1114,10 @@ struct AndroidProfile {
     vpn_gate: usque_core::vpngate::VpnGateSettings,
     #[serde(default)]
     data_plane: usque_core::DataPlaneMode,
+    #[serde(default)]
+    warp_underlay: usque_core::WarpUnderlay,
+    #[serde(default)]
+    native_warp_profile: Option<usque_core::chain_exit::ChainExitSettings>,
     id: String,
     name: String,
     mode: String,
@@ -1334,6 +1338,8 @@ fn android_profile_to_core(source: AndroidProfile) -> Result<Profile, String> {
         vpn_gate: source.vpn_gate,
         id: parse_value(&source.id, "profile ID")?,
         data_plane: source.data_plane,
+        warp_underlay: source.warp_underlay,
+        native_warp_profile: source.native_warp_profile,
         name: source.name,
         mode,
         frontends,

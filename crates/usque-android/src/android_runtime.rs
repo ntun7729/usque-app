@@ -160,6 +160,15 @@ fn spawn_runtime(
         },
         None => None,
     };
+    // Until the native packet actor is integrated, never pretend that a
+    // requested WireGuard outer connection is a healthy MASQUE session.
+    if profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard {
+        let mut snapshot = NativeSnapshot::disconnected();
+        snapshot.phase = "error".to_owned();
+        snapshot.error_code = Some("NATIVE_WARP_WIREGUARD_UNAVAILABLE".to_owned());
+        remember_last_start_error(snapshot);
+        return START_TRANSPORT_FAILURE;
+    }
     let tls_identity = match MasqueTlsIdentity::from_warp_identity(&identity) {
         Ok(identity) => identity,
         Err(_) => return START_TRANSPORT_FAILURE,

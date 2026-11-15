@@ -492,6 +492,12 @@ pub struct Profile {
     pub tls_fingerprint: TlsFingerprint,
     #[serde(default)]
     pub data_plane: DataPlaneMode,
+    /// WARP carrier, independent of the selected chain-exit source.
+    #[serde(default)]
+    pub warp_underlay: WarpUnderlay,
+    /// Encrypted WARP WireGuard profile to use for direct outer UDP transport.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_warp_profile: Option<crate::chain_exit::ChainExitSettings>,
     #[serde(default)]
     pub congestion_control: CongestionControlAlgorithm,
     pub endpoint: EndpointSettings,
@@ -541,6 +547,8 @@ impl Default for Profile {
             transport: TransportPolicy::Auto,
             tls_fingerprint: TlsFingerprint::default(),
             data_plane: DataPlaneMode::ConnectIp,
+            warp_underlay: WarpUnderlay::default(),
+            native_warp_profile: None,
             congestion_control: CongestionControlAlgorithm::default(),
             endpoint: EndpointSettings::default(),
             ip_policy: IpPolicy::Auto,
@@ -608,6 +616,20 @@ impl Profile {
             && !matches!(self.ip_policy, IpPolicy::Ipv6Only | IpPolicy::PreferIpv6)
         {
             return Err(ConfigError::EndpointPresetRequiresIpv6);
+        }
+
+        if self.warp_underlay == WarpUnderlay::NativeWireGuard {
+            let native = self
+                .native_warp_profile
+                .as_ref()
+                .ok_or(ConfigError::InvalidVpnGateSelection)?;
+            if self.data_plane != DataPlaneMode::ConnectIp
+                || native.source != crate::chain_exit::ChainSource::WarpWireguard
+                || !native.enabled
+                || native.validate().is_err()
+            {
+                return Err(ConfigError::InvalidVpnGateSelection);
+            }
         }
 
         if let Some(chain) = &self.chain_exit {

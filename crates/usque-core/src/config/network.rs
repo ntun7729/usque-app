@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     Account, CongestionControlAlgorithm, DataPlaneMode, DirectDnsSettings, DnsMode,
     EndpointSettings, FrontendSettings, IpPolicy, Profile, ProxySettings, TlsFingerprint,
-    TransportPolicy, WarpDnsSettings,
+    TransportPolicy, WarpDnsSettings, WarpUnderlay,
 };
 
 /// Device-wide MASQUE, DNS, proxy, and output settings. A Zero Trust account
@@ -19,6 +19,10 @@ pub struct SharedNetworkSettings {
     pub tls_fingerprint: TlsFingerprint,
     #[serde(default)]
     pub data_plane: DataPlaneMode,
+    #[serde(default)]
+    pub warp_underlay: WarpUnderlay,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_warp_profile: Option<crate::chain_exit::ChainExitSettings>,
     #[serde(default)]
     pub congestion_control: CongestionControlAlgorithm,
     pub endpoint: EndpointSettings,
@@ -69,6 +73,8 @@ impl SharedNetworkSettings {
             transport: profile.transport,
             tls_fingerprint: profile.tls_fingerprint,
             data_plane: profile.data_plane,
+            warp_underlay: profile.warp_underlay,
+            native_warp_profile: profile.native_warp_profile.clone(),
             congestion_control: profile.congestion_control,
             endpoint: profile.endpoint.clone(),
             ip_policy: profile.ip_policy,
@@ -110,6 +116,8 @@ impl SharedNetworkSettings {
             transport: self.transport,
             tls_fingerprint: self.tls_fingerprint,
             data_plane: self.data_plane,
+            warp_underlay: self.warp_underlay,
+            native_warp_profile: self.native_warp_profile.clone(),
             congestion_control: self.congestion_control,
             endpoint,
             ip_policy: self.ip_policy,

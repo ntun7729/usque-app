@@ -78,8 +78,7 @@ mod tests {
         let object = value.as_object_mut().unwrap();
         object.remove("warp_underlay");
         object.remove("native_warp_profile");
-        let migrated: super::super::SharedNetworkSettings =
-            serde_json::from_value(value).unwrap();
+        let migrated: super::super::SharedNetworkSettings = serde_json::from_value(value).unwrap();
         assert_eq!(migrated.warp_underlay, WarpUnderlay::Masque);
         assert_eq!(migrated.native_warp_profile, None);
     }

@@ -83,6 +83,49 @@ mod tests {
         assert_eq!(migrated.native_warp_profile, None);
     }
     #[test]
+    fn warp_underlay_switch_is_field_scoped_and_requires_cold_reconnect() {
+        use crate::network_settings::{NETWORK_FIELDS, changed_fields};
+        use crate::reconfigure::{ReconfigureClass, classify_reconfigure};
+
+        let previous = super::super::Profile::default();
+        let mut next = previous.clone();
+        next.warp_underlay = WarpUnderlay::NativeWireGuard;
+
+        assert!(NETWORK_FIELDS.contains(&"warp_underlay"));
+        assert!(changed_fields(&previous, &next).contains(&"warp_underlay".to_owned()));
+        assert_eq!(
+            classify_reconfigure(&previous, &next),
+            ReconfigureClass::ColdReconnect
+        );
+    }
+
+    #[test]
+    fn warp_underlay_profile_reference_is_persisted_separately_from_exit() {
+        use crate::chain_exit::{ChainExitSettings, ChainSource};
+        use crate::network_settings::{NETWORK_FIELDS, changed_fields};
+        use crate::reconfigure::{ReconfigureClass, classify_reconfigure};
+        use uuid::Uuid;
+
+        let previous = super::super::Profile::default();
+        let mut next = previous.clone();
+        next.native_warp_profile = Some(ChainExitSettings {
+            enabled: true,
+            source: ChainSource::WarpWireguard,
+            profile_id: Some(Uuid::new_v4()),
+            revision: Some(Uuid::new_v4()),
+            ..Default::default()
+        });
+
+        assert!(NETWORK_FIELDS.contains(&"native_warp_profile"));
+        assert!(changed_fields(&previous, &next).contains(&"native_warp_profile".to_owned()));
+        assert_eq!(
+            classify_reconfigure(&previous, &next),
+            ReconfigureClass::ColdReconnect
+        );
+        assert_eq!(next.chain_exit, previous.chain_exit);
+    }
+
+    #[test]
     fn warp_underlay_defaults_to_masque_for_existing_profiles() {
         #[derive(Deserialize)]
         struct ExistingProfile {

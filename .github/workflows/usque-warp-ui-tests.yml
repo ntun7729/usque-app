@@ -1,0 +1,43 @@
+name: Native WARP UI selector tests
+
+on:
+  push:
+    branches:
+      - feature/android-wg-native-actor
+    paths:
+      - 'apps/usque_gui/lib/**'
+      - 'apps/usque_gui/test/warp_underlay_selector_test.dart'
+      - '.github/workflows/usque-warp-ui-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warp-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q --filter=blob:none --branch 3.44.7 --depth 1 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "84fc5cbb223bc12f83d65b647ff8a56caf779ffd"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Resolve locked packages
+        working-directory: apps/usque_gui
+        run: flutter --suppress-analytics pub get --enforce-lockfile
+      - name: Selector widget tests
+        working-directory: apps/usque_gui
+        run: flutter --suppress-analytics test test/warp_underlay_selector_test.dart
+      - name: Flutter targeted analysis
+        working-directory: apps/usque_gui
+        run: flutter --suppress-analytics analyze lib/widgets/warp_underlay_selector.dart lib/screens/advanced_settings_screen.dart lib/models/app_models.dart test/warp_underlay_selector_test.dart

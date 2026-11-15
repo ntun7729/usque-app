@@ -35,6 +35,8 @@ mod live_ads;
 mod live_routing;
 mod masque_runtime;
 mod migration_barrier;
+#[cfg(feature = "wireguard")]
+mod native_warp_udp;
 mod netstack;
 mod network_quality;
 mod outbound_packet;

@@ -38,7 +38,7 @@ mod migration_barrier;
 #[cfg(feature = "wireguard")]
 pub mod native_warp_udp;
 #[cfg(feature = "wireguard")]
-mod native_warp_wireguard;
+pub mod native_warp_wireguard;
 mod netstack;
 mod network_quality;
 mod outbound_packet;

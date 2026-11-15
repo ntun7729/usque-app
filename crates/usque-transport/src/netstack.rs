@@ -845,6 +845,16 @@ fn initial_quality_receiver(
 }
 
 impl ManagedTunnelRuntime {
+    /// Retain the physical generation used by a protected native packet path.
+    pub(crate) fn external_path(&self) -> ActiveNetworkPath {
+        self.network_path.clone()
+    }
+
+    /// The physical actor must be owned by the same lifecycle as the TUN mux.
+    pub(crate) fn track_external_task(&mut self, task: JoinHandle<()>) {
+        self.tasks.push(task);
+    }
+
     pub(crate) fn for_external_packets(
         path: RuntimePath,
         transport: crate::NetworkQualityTelemetry,

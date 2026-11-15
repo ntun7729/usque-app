@@ -42,7 +42,14 @@ mod tests {
 
     #[test]
     fn warp_underlay_rejects_unknown_modes() {
-        for invalid in ["\"wireguard\"", "\"native_wire_guard\"", "\"auto\"", "\"l4_proxy\"", "null", "3"] {
+        for invalid in [
+            "\"wireguard\"",
+            "\"native_wire_guard\"",
+            "\"auto\"",
+            "\"l4_proxy\"",
+            "null",
+            "3",
+        ] {
             assert!(serde_json::from_str::<WarpUnderlay>(invalid).is_err());
         }
     }

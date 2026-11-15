@@ -2,7 +2,7 @@ name: Native WARP UDP transport tests
 
 on:
   push:
-    branches: [feature/android-wg-udp]
+    branches: [feature/android-wg-udp, feature/android-wg-native-actor]
     paths:
       - 'crates/usque-transport/**'
       - 'crates/usque-core/**'
@@ -39,6 +39,8 @@ jobs:
         run: cargo test -p usque-core warp_underlay --locked
       - name: New native WireGuard UDP tests
         run: cargo test -p usque-transport native_warp_udp --features wireguard --locked
+      - name: Native WARP WireGuard actor tests
+        run: cargo test -p usque-transport native_warp_wireguard --features wireguard --locked
       - name: Rustfmt
         run: cargo fmt --all --check
       - name: Transport Clippy

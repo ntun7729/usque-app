@@ -36,7 +36,10 @@ mod tests {
         for mode in [WarpUnderlay::Masque, WarpUnderlay::NativeWireGuard] {
             let encoded = serde_json::to_string(&mode).unwrap();
             assert_eq!(encoded, format!("\"{}\"", mode.as_str()));
-            assert_eq!(serde_json::from_str::<WarpUnderlay>(&encoded).unwrap(), mode);
+            assert_eq!(
+                serde_json::from_str::<WarpUnderlay>(&encoded).unwrap(),
+                mode
+            );
         }
     }
 

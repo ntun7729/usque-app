@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/android-wg-udp
+      - feature/android-wg-native-actor
     paths:
       - 'crates/**'
       - 'apps/**'
@@ -88,6 +89,10 @@ jobs:
       - name: Resolve locked Flutter packages
         working-directory: apps/usque_gui
         run: flutter --suppress-analytics pub get --enforce-lockfile
+
+      - name: Verify WARP selector and network settings
+        working-directory: apps/usque_gui
+        run: flutter --suppress-analytics test test/warp_underlay_selector_test.dart test/network_settings_test.dart
 
       - name: Create ephemeral build-only signing identity
         env:
@@ -231,7 +236,7 @@ jobs:
       - name: Publish signed experimental Android APKs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: usque-android-wg-udp-foundation-apks
+          name: usque-android-wg-carrier-picker-preview-apks
           path: apps/usque_gui/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 14

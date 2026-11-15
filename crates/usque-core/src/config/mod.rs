@@ -23,6 +23,7 @@ mod initial_identity;
 mod network;
 mod routing;
 mod tls_fingerprint;
+mod warp_underlay;
 #[cfg(test)]
 mod warp_dns_tests;
 
@@ -36,6 +37,7 @@ pub use routing::{
     MAX_ROUTING_RULES_PER_KIND, RoutingAction, RoutingMatch, RoutingRule, RoutingSettings,
 };
 pub use tls_fingerprint::TlsFingerprint;
+pub use warp_underlay::WarpUnderlay;
 
 pub const CURRENT_SCHEMA_VERSION: u32 = 27;
 /// Vault namespace for device-wide proxy-listener secrets. Never a profile id.

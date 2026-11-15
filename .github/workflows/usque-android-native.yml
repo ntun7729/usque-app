@@ -3,7 +3,7 @@ name: Usque Android experimental APK
 on:
   push:
     branches:
-      - feature/android-native-warp-proton
+      - feature/android-wg-udp
     paths:
       - 'crates/**'
       - 'apps/**'
@@ -231,7 +231,7 @@ jobs:
       - name: Publish signed experimental Android APKs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: usque-android-dual-warp-experimental-apks
+          name: usque-android-wg-udp-foundation-apks
           path: apps/usque_gui/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 14

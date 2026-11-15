@@ -1,10 +1,10 @@
-# Android Native WARP WireGuard + Proton Guest Implementation Plan
+# Android Native WARP WireGuard + All Chain Exits Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Android Usque supports selectable MASQUE and direct WARP WireGuard UDP, while the existing Proton Guest chain and other chain exits work with either.
+**Goal:** Android Usque supports selectable MASQUE and direct WARP WireGuard UDP, while every existing chain source (OpenVPN, WireGuard, WARP via WireGuard, Proton Guest, VPN Gate, HTTP, SOCKS5) works with either.
 
-**Architecture:** Keep the existing MASQUE and Flutter design. Add an outer-underlay selection contract and a protected UDP WireGuard path that feeds the shared netstack and chain pipeline. Adapt Proton's control channel and chain to consume the selected underlay rather than assuming MASQUE.
+**Architecture:** Keep the existing MASQUE and Flutter design. Add an outer-underlay selection contract and a protected UDP WireGuard path that feeds the shared netstack and chain pipeline. Adapt the shared chain transport and Proton's control channel to consume the selected underlay rather than assuming MASQUE.
 
 **Tech Stack:** Rust 1.97.1, Tokio, boringtun 0.7.1, Flutter 3.44.7, Kotlin Android VpnService, Android NDK 29.0.14206865, GitHub Actions.
 
@@ -78,17 +78,17 @@
 - [ ] Run workspace Rust tests, Android host tests and APK compile in Container; expect PASS.
 - [ ] Commit only once MASQUE regression checks and Android TUN protection tests pass.
 
-### Task 5: Proton Guest and chain interoperability
+### Task 5: All seven chain modes across both WARP transports
 
 **Files:** Modify crates/usque-transport/src/data_plane.rs; crates/usque-engine/src/proton_vpn.rs; crates/usque-engine/src/chain_exit.rs; crates/usque-android/src/lib.rs as needed.
 
-**Interfaces:** Existing Proton Guest account/session/auth/certificate logic stays intact; it is bound to the selected working WARP outer transport. Authorization and directory operations use the same protected underlay; selected chain exit is never silently removed.
+**Interfaces:** Preserve all seven chain sources via the same outer transport interface: OpenVPN custom, WireGuard custom, WARP via WireGuard, Proton Guest, VPN Gate, HTTP CONNECT, SOCKS5. Existing Proton Guest account/session/auth/certificate logic stays intact. Resolve chain routing, authorization, DNS, and endpoint socket semantics through the selected protected underlay; no selected chain is silently dropped.
 
-- [ ] Write tests for both mode dispatch, guest account reuse, certificate refresh, stale session, explicit Proton authorization failure and no WARP-only fallback.
+- [ ] Write a 2x7 underlay/chain-source matrix covering both dispatch modes; include guest account reuse, certificate refresh, OpenVPN UDP/TCP, custom WireGuard, WARP WireGuard, VPN Gate, HTTP CONNECT, SOCKS5, stale session, and no fallback when selected chain authorization fails.
 - [ ] Run focused tests in Container; expect FAIL initially.
-- [ ] Refactor MASQUE-only Proton transport assumptions into an outer-underlay contract, preserving existing login and certificate code.
+- [ ] Refactor MASQUE-only chain transport assumptions into an outer-underlay contract consumed by every exit, preserving all existing import, authentication and certificate code.
 - [ ] Run Rust/Android CI and verify other chain sources still work; expect PASS.
-- [ ] Commit Proton integration only after deterministic tests pass.
+- [ ] Commit chain integration only after all seven sources have deterministic coverage; document live-test gaps separately.
 
 ### Task 6: Original Flutter UI — transport selector
 

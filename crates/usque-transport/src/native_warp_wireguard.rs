@@ -36,25 +36,38 @@ impl NativeWarpWireguard {
         }
 
         let endpoint = profile.endpoint.address().ok_or_else(|| {
-            TransportError::Netstack("native WARP requires a pinned numeric WireGuard endpoint".into())
+            TransportError::Netstack(
+                "native WARP requires a pinned numeric WireGuard endpoint".into(),
+            )
         })?;
-        let ipv4 = profile.addresses.iter().find_map(|address| match address.addr() {
-            IpAddr::V4(address) => Some(address),
-            _ => None,
-        }).filter(|address| !address.is_unspecified()).ok_or_else(|| {
-            TransportError::Netstack("native WARP profile has no IPv4 assignment".into())
-        })?;
-        let ipv6 = profile.addresses.iter().find_map(|address| match address.addr() {
-            IpAddr::V6(address) => Some(address),
-            _ => None,
-        }).unwrap_or(Ipv6Addr::UNSPECIFIED);
+        let _ipv4 = profile
+            .addresses
+            .iter()
+            .find_map(|address| match address.addr() {
+                IpAddr::V4(address) => Some(address),
+                _ => None,
+            })
+            .filter(|address| !address.is_unspecified())
+            .ok_or_else(|| {
+                TransportError::Netstack("native WARP profile has no IPv4 assignment".into())
+            })?;
+        let ipv6 = profile
+            .addresses
+            .iter()
+            .find_map(|address| match address.addr() {
+                IpAddr::V6(address) => Some(address),
+                _ => None,
+            })
+            .unwrap_or(Ipv6Addr::UNSPECIFIED);
         let generation = protector.network_generation().unwrap_or_default();
         let socket = NativeWarpUdp::connect(
             endpoint,
             Arc::clone(&protector),
             generation,
             cancellation.child_token(),
-        ).await.map_err(|error| TransportError::Netstack(error.to_string()))?;
+        )
+        .await
+        .map_err(|error| TransportError::Netstack(error.to_string()))?;
 
         let family = if endpoint.is_ipv4() {
             AddressFamily::Ipv4
@@ -69,10 +82,8 @@ impl NativeWarpWireguard {
             ipv4_available: true,
             ipv6_available: !ipv6.is_unspecified(),
         };
-        let (mut tunnel, mut channels) = ManagedTunnelRuntime::for_external_packets(
-            path,
-            NetworkQualityTelemetry::default(),
-        );
+        let (mut tunnel, mut channels) =
+            ManagedTunnelRuntime::for_external_packets(path, NetworkQualityTelemetry::default());
         channels.health.send_replace(RuntimeHealth::Connecting {
             requested: path,
             attempt: 1,
@@ -82,7 +93,18 @@ impl NativeWarpWireguard {
         let task_cancel = cancellation.child_token();
         let task = tokio::spawn(async move {
             let mut ready = Some(ready_tx);
-            let task = drive(profile, socket, protector, generation, &mut channels, &mut ready, task_cancel.clone(), path, network_path).await;
+            let task = drive(
+                profile,
+                socket,
+                protector,
+                generation,
+                &mut channels,
+                &mut ready,
+                task_cancel.clone(),
+                path,
+                network_path,
+            )
+            .await;
             if let Err(error) = task {
                 if !channels.cancellation.is_cancelled() && !task_cancel.is_cancelled() {
                     let message = error.to_string();
@@ -144,7 +166,10 @@ async fn drive(
     let mut active_generation = 1u64;
     let mut connected = false;
     let mut reconnect_count = 0u32;
-    let mut outgoing = channels.outgoing.take().ok_or(TransportError::TunnelClosed)?;
+    let mut outgoing = channels
+        .outgoing
+        .take()
+        .ok_or(TransportError::TunnelClosed)?;
     let mut physical_tick = tokio::time::interval(Duration::from_secs(1));
     physical_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -167,12 +192,19 @@ async fn drive(
                 }
             }
             PacketEvent::Encrypted(datagram) => {
-                let datagram = datagram.map_err(|error| TransportError::Netstack(error.to_string()))?;
-                input.push(1, active_generation, &datagram).await.map_err(|_| TransportError::TunnelClosed)?;
+                let datagram =
+                    datagram.map_err(|error| TransportError::Netstack(error.to_string()))?;
+                input
+                    .push(1, active_generation, &datagram)
+                    .await
+                    .map_err(|_| TransportError::TunnelClosed)?;
             }
             PacketEvent::Plaintext(Some(packet)) => {
                 let bytes = packet.freeze();
-                input.push_owned(2, active_generation, bytes.clone()).await.map_err(|_| TransportError::TunnelClosed)?;
+                input
+                    .push_owned(2, active_generation, bytes.clone())
+                    .await
+                    .map_err(|_| TransportError::TunnelClosed)?;
                 channels.counters.record_sent(bytes.len());
             }
             PacketEvent::Plaintext(None) => return Err(TransportError::TunnelClosed),
@@ -181,19 +213,38 @@ async fn drive(
                 Event::Dial { generation } => {
                     active_generation = generation;
                     connected = false;
-                    input.push(3, generation, &[]).await.map_err(|_| TransportError::TunnelClosed)?;
+                    input
+                        .push(3, generation, &[])
+                        .await
+                        .map_err(|_| TransportError::TunnelClosed)?;
                 }
-                Event::TransportPacket { generation, packet } if generation == active_generation => {
-                    socket.send(&packet).await.map_err(|error| TransportError::Netstack(error.to_string()))?;
+                Event::TransportPacket { generation, packet }
+                    if generation == active_generation =>
+                {
+                    socket
+                        .send(&packet)
+                        .await
+                        .map_err(|error| TransportError::Netstack(error.to_string()))?;
                 }
-                Event::IpPacket { generation, packet } if generation == active_generation && connected => {
+                Event::IpPacket { generation, packet }
+                    if generation == active_generation && connected =>
+                {
                     let bytes = packet.len();
-                    channels.incoming.send_observed(PacketBatch::single(packet), bytes).await.map_err(|_| TransportError::TunnelClosed)?;
+                    channels
+                        .incoming
+                        .send_observed(PacketBatch::single(packet), bytes)
+                        .await
+                        .map_err(|_| TransportError::TunnelClosed)?;
                     channels.counters.record_received(bytes);
                 }
-                Event::Network { generation: packet_generation, config } if packet_generation == active_generation => {
+                Event::Network {
+                    generation: packet_generation,
+                    config,
+                } if packet_generation == active_generation => {
                     let assigned = (
-                        config.ipv4.ok_or_else(|| TransportError::Netstack("native WARP handshake omitted IPv4".into()))?,
+                        config.ipv4.ok_or_else(|| {
+                            TransportError::Netstack("native WARP handshake omitted IPv4".into())
+                        })?,
                         config.ipv6.unwrap_or(Ipv6Addr::UNSPECIFIED),
                     );
                     connected = true;
@@ -206,7 +257,12 @@ async fn drive(
                         let _ = ready.send(Ok(assigned));
                     }
                 }
-                Event::State { generation, name, error, fatal } if generation == active_generation => {
+                Event::State {
+                    generation,
+                    name,
+                    error,
+                    fatal,
+                } if generation == active_generation => {
                     if error || fatal {
                         network_path.deactivate();
                         return Err(TransportError::TunnelClosed);
@@ -220,10 +276,8 @@ async fn drive(
                             attempt: 1,
                             reconnect_count,
                             reason: "native_wireguard_handshake_restart".into(),
-                            failure: TransportError::ConnectTimeout.failure(
-                                Some(path.transport),
-                                Some(path.endpoint_family),
-                            ),
+                            failure: TransportError::ConnectTimeout
+                                .failure(Some(path.transport), Some(path.endpoint_family)),
                         });
                     }
                 }
@@ -267,12 +321,8 @@ mod tests {
         let config = profile(peer.local_addr().unwrap());
         let cancellation = CancellationToken::new();
         let task = tokio::spawn(async move {
-            NativeWarpWireguard::start(
-                config,
-                Arc::new(crate::NoopSocketProtector),
-                cancellation,
-            )
-            .await
+            NativeWarpWireguard::start(config, Arc::new(crate::NoopSocketProtector), cancellation)
+                .await
         });
         let mut datagram = [0u8; 2048];
         let (received, _) = timeout(Duration::from_secs(3), peer.recv_from(&mut datagram))
@@ -289,12 +339,9 @@ mod tests {
         let config = profile(std::net::SocketAddr::from(([127, 0, 0, 1], 443)));
         let cancellation = CancellationToken::new();
         cancellation.cancel();
-        let result = NativeWarpWireguard::start(
-            config,
-            Arc::new(crate::NoopSocketProtector),
-            cancellation,
-        )
-        .await;
+        let result =
+            NativeWarpWireguard::start(config, Arc::new(crate::NoopSocketProtector), cancellation)
+                .await;
         assert!(result.is_err());
     }
 }

@@ -58,6 +58,32 @@ mod tests {
     }
 
     #[test]
+    fn native_underlay_is_preserved_separately_from_selected_chain_exit() {
+        let mut profile = super::super::Profile::default();
+        assert_eq!(profile.warp_underlay, WarpUnderlay::Masque);
+        assert_eq!(profile.native_warp_profile, None);
+        profile.warp_underlay = WarpUnderlay::NativeWireGuard;
+        let selected = serde_json::to_value(&profile).unwrap();
+        assert_eq!(selected["warp_underlay"], "native_wireguard");
+        let restored: super::super::Profile = serde_json::from_value(selected).unwrap();
+        assert_eq!(restored.warp_underlay, WarpUnderlay::NativeWireGuard);
+        assert_eq!(restored.chain_exit, None);
+        assert_eq!(restored.native_warp_profile, None);
+    }
+
+    #[test]
+    fn legacy_shared_network_migrates_to_masque_and_retains_chain() {
+        let network = super::super::SharedNetworkSettings::default();
+        let mut value = serde_json::to_value(network).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("warp_underlay");
+        object.remove("native_warp_profile");
+        let migrated: super::super::SharedNetworkSettings =
+            serde_json::from_value(value).unwrap();
+        assert_eq!(migrated.warp_underlay, WarpUnderlay::Masque);
+        assert_eq!(migrated.native_warp_profile, None);
+    }
+    #[test]
     fn warp_underlay_defaults_to_masque_for_existing_profiles() {
         #[derive(Deserialize)]
         struct ExistingProfile {

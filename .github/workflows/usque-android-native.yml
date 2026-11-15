@@ -8,6 +8,7 @@ on:
     paths:
       - 'crates/**'
       - 'apps/**'
+      - '!apps/usque_gui/test/**'
       - 'tool/**'
       - '.github/workflows/usque-android-native.yml'
       - 'Cargo.toml'

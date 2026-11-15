@@ -1,5 +1,9 @@
 /// Simplified Chinese UI catalog.
 const Map<String, String> kZhCnCatalog = <String, String>{
+  'warp_underlay_title': 'WARP 连接协议',
+  'warp_underlay_masque': 'MASQUE H3/H2',
+  'warp_underlay_native': '原生 WireGuard UDP',
+  'warp_underlay_unavailable': '当前版本尚不支持原生 WireGuard UDP。现有链式代理继续使用 MASQUE。',
   'dns_doh_url': 'DoH 地址',
   'dns_invalid_doh_url': '请输入有效的 HTTPS DNS 地址',
   'warp_dns_type': 'WARP DNS',

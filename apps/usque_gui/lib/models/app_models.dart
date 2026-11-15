@@ -2191,6 +2191,7 @@ class EngineCapabilities {
     this.chainOpenvpnUdp = false,
     this.chainWireguard = false,
     this.chainWarpWireguard = false,
+    this.nativeWarpWireguard = false,
     this.chainProtonVpn = false,
     this.protonAccountWarpFallback = false,
     this.protonServerSwitching = false,
@@ -2234,6 +2235,7 @@ class EngineCapabilities {
     chainOpenvpnUdp: map['chain_openvpn_udp'] == true,
     chainWireguard: map['chain_wireguard'] == true,
     chainWarpWireguard: map['chain_warp_wireguard'] == true,
+    nativeWarpWireguard: map['native_warp_wireguard'] == true,
     chainProtonVpn: map['chain_proton_vpn'] == true,
     protonAccountWarpFallback: map['proton_account_warp_fallback'] == true,
     protonServerSwitching: map['proton_server_switching'] == true,
@@ -2282,6 +2284,7 @@ class EngineCapabilities {
   );
 
   final bool vpn;
+  final bool nativeWarpWireguard;
   final bool systemProxy;
   final bool customBypass;
   final bool routingRules;
@@ -2332,6 +2335,7 @@ class EngineCapabilities {
           chainOpenvpnUdp == other.chainOpenvpnUdp &&
           chainWireguard == other.chainWireguard &&
           chainWarpWireguard == other.chainWarpWireguard &&
+          nativeWarpWireguard == other.nativeWarpWireguard &&
           chainProtonVpn == other.chainProtonVpn &&
           protonAccountWarpFallback == other.protonAccountWarpFallback &&
           protonServerSwitching == other.protonServerSwitching &&
@@ -2380,6 +2384,7 @@ class EngineCapabilities {
     chainWireguard,
     Object.hash(
       chainWarpWireguard,
+      nativeWarpWireguard,
       chainProtonVpn,
       protonAccountWarpFallback,
       protonServerSwitching,

@@ -18,6 +18,7 @@ import '../widgets/tv_text_input.dart';
 import '../widgets/unsaved_changes_guard.dart';
 import '../widgets/usque_dialog.dart';
 import '../widgets/warp_dns_editor.dart';
+import '../widgets/warp_underlay_selector.dart';
 import '../widgets/zero_trust_endpoint_warning.dart';
 
 class AdvancedSettingsScreen extends StatefulWidget {
@@ -40,6 +41,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   late final TextEditingController _dnsV6;
   late TransportPolicy _transport;
   late DataPlaneMode _dataPlane;
+  late WarpUnderlay _warpUnderlay;
   late CongestionControlAlgorithm _congestionControl;
   late TlsFingerprint _tlsFingerprint;
   late IpPolicy _ipPolicy;
@@ -94,6 +96,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     _mtu.text,
     _transport,
     _dataPlane,
+    _warpUnderlay,
     _congestionControl,
     _tlsFingerprint,
     _ipPolicy,
@@ -245,6 +248,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     _dnsV6.text = profile.dnsIpv6;
     _transport = profile.transport;
     _dataPlane = profile.dataPlane;
+    _warpUnderlay = profile.warpUnderlay;
     _congestionControl = profile.congestionControl;
     _tlsFingerprint = profile.tlsFingerprint;
     _ipPolicy = profile.ipPolicy;
@@ -660,6 +664,27 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     return FormGroup(
       title: strings.get('transport'),
       children: <Widget>[
+        WarpUnderlaySelector(
+          selected: _warpUnderlay,
+          nativeAvailable:
+              widget.controller.engineCapabilities?.nativeWarpWireguard ?? false,
+          onSelected: _saving
+              ? null
+              : (mode) {
+                  if (mode == _warpUnderlay) return;
+                  setState(() {
+                    _warpUnderlay = mode;
+                    _saved = false;
+                    _validationError = null;
+                    _saveError = null;
+                  });
+                },
+          title: strings.get('warp_underlay_title'),
+          masqueLabel: strings.get('warp_underlay_masque'),
+          nativeLabel: strings.get('warp_underlay_native'),
+          unavailableText: strings.get('warp_underlay_unavailable'),
+        ),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) => SegmentedButton<String>(
             direction:
@@ -1011,6 +1036,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
       'mtu',
       'transport',
       'data_plane',
+      'warp_underlay',
       'congestion_control',
       'tls_fingerprint',
       'ip_policy',
@@ -1045,6 +1071,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
         id: _editingAccountId,
         transport: _transport,
         dataPlane: _dataPlane,
+        warpUnderlay: _warpUnderlay,
         congestionControl: _congestionControl,
         tlsFingerprint: _tlsFingerprint,
         ipPolicy: _ipPolicy,

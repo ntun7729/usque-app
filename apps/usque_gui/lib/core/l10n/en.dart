@@ -1,5 +1,10 @@
 /// English UI catalog.
 const Map<String, String> kEnCatalog = <String, String>{
+  'warp_underlay_title': 'WARP connection',
+  'warp_underlay_masque': 'MASQUE H3/H2',
+  'warp_underlay_native': 'Native WireGuard UDP',
+  'warp_underlay_unavailable':
+      'Native WireGuard UDP is not available in this build. MASQUE remains active.',
   'dns_doh_url': 'DoH URL',
   'dns_invalid_doh_url': 'Enter a valid HTTPS DNS URL',
   'warp_dns_type': 'WARP DNS',

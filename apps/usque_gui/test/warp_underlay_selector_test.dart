@@ -4,12 +4,60 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:usque/core/usque_theme.dart';
 import 'package:usque/models/app_models.dart';
 import 'package:usque/screens/advanced_settings_screen.dart';
+import 'package:usque/services/engine_client.dart';
 import 'package:usque/state/app_controller.dart';
 import 'package:usque/widgets/warp_underlay_selector.dart';
 
 import 'app_test.dart' show FakeEngineClient;
 
+class _OuterWarpLibraryEngine extends FakeEngineClient
+    implements ChainProfileClient {
+  @override
+  Future<EngineCapabilities?> getCapabilities() async =>
+      const EngineCapabilities(
+        networkSettingsApplication: true,
+        nativeWarpWireguard: true,
+        tlsFingerprints: TlsFingerprint.values,
+        automaticEndpoints: true,
+      );
+
+  @override
+  Future<ChainProfileResult> chainProfile(Map<String, Object?> request) async =>
+      const ChainProfileResult(profiles: [
+        ChainProfileSummary(
+          id: 'outer-warp',
+          revision: 'outer-rev',
+          editRevision: 'outer-edit',
+          name: 'WARP outer UDP',
+          protocol: 'wireguard',
+          host: '162.159.192.17',
+          port: 500,
+          source: ChainSource.warpWireguard,
+        ),
+      ]);
+
+  @override
+  Future<List<ChainConfigurationFile>> pickChainConfigurations() async => [];
+}
+
 void main() {
+  testWidgets('advanced settings reveals native WARP profile picker when supported',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'update_checks_enabled': false});
+    final controller = AppController(_OuterWarpLibraryEngine());
+    await controller.initialize();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(
+      theme: UsqueTheme.light(),
+      home: AdvancedSettingsScreen(controller: controller),
+    ));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Native WireGuard UDP'));
+    await tester.tap(find.text('Native WireGuard UDP'));
+    await tester.pump();
+    expect(find.byType(NativeWarpProfilePicker), findsOneWidget);
+  });
+
   testWidgets('advanced settings exposes the WARP carrier selector', (tester) async {
     SharedPreferences.setMockInitialValues({'update_checks_enabled': false});
     final controller = AppController(FakeEngineClient());

@@ -2,7 +2,7 @@ name: Native WARP UDP transport tests
 
 on:
   push:
-    branches: [feature/android-wg-udp, feature/android-wg-native-actor]
+    branches: [feature/android-wg-udp, feature/android-wg-native-actor, feature/android-wg-negotiated-tun]
     paths:
       - 'crates/usque-transport/**'
       - 'crates/usque-core/**'

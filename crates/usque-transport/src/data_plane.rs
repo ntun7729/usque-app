@@ -2638,3 +2638,24 @@ mod tests {
         }
     }
 }
+
+#[cfg(all(test, feature = "wireguard"))]
+mod native_outer_warp_startup_tests {
+    use super::*;
+
+    #[test]
+    fn native_warp_never_falls_back_to_masque_without_prepared_secrets() {
+        let legacy = Profile::default();
+        assert!(validate_native_warp_preparation(&legacy, false).is_ok());
+
+        let native = Profile {
+            warp_underlay: usque_core::WarpUnderlay::NativeWireGuard,
+            ..Profile::default()
+        };
+        assert!(matches!(
+            validate_native_warp_preparation(&native, false),
+            Err(TransportError::InvalidIdentity)
+        ));
+        assert!(validate_native_warp_preparation(&native, true).is_ok());
+    }
+}

@@ -7,14 +7,9 @@ on:
       - feature/android-wg-native-actor
       - feature/android-wg-negotiated-tun
     paths:
-      - 'crates/**'
-      - 'apps/**'
-      - '!apps/usque_gui/test/**'
-      - 'tool/**'
-      - '.github/workflows/usque-android-native.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain.toml'
+      # Avoid expensive APK builds on every intermediate test/code commit.
+      # Production bridge fix is the sole automatic APK build trigger.
+      - 'apps/usque_gui/android/app/src/main/kotlin/io/github/georgexie2333/usque/NetworkQualityFields.kt'
   workflow_dispatch:
 
 concurrency:
@@ -33,7 +28,7 @@ env:
 
 jobs:
   android:
-    name: Android APK (all ABIs)
+    name: Android APK (arm64 only)
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
@@ -70,10 +65,7 @@ jobs:
           set -euo pipefail
           rustup toolchain install 1.97.1 --profile minimal --component clippy
           rustup default 1.97.1
-          rustup target add \
-            aarch64-linux-android \
-            armv7-linux-androideabi \
-            x86_64-linux-android
+          rustup target add aarch64-linux-android
           android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           test -n "$android_sdk"
           sdkmanager="$android_sdk/cmdline-tools/latest/bin/sdkmanager"
@@ -111,137 +103,63 @@ jobs:
             -validity 1 \
             -dname "CN=Untrusted Usque CI Build, O=Usque Development, C=XX"
 
-      - name: Build split and universal Release APKs without release secrets
+      - name: Build one ARM64 release APK
         working-directory: apps/usque_gui
         env:
-          USQUE_ANDROID_ABI: all
+          USQUE_ANDROID_ABI: arm64-v8a
           USQUE_ANDROID_KEYSTORE: ${{ runner.temp }}/usque-build-only.jks
           USQUE_ANDROID_STORE_PASSWORD: usque-build-only-password
           USQUE_ANDROID_KEY_ALIAS: usque-build-only
           USQUE_ANDROID_KEY_PASSWORD: usque-build-only-password
         run: |
           set -euo pipefail
-          symbol_root="$RUNNER_TEMP/flutter-symbols-android"
-          mkdir -p "$symbol_root/split" "$symbol_root/universal"
-          # Match the release workflow's compiler reuse and separate snapshots.
           flutter --suppress-analytics build apk \
             --release \
             --split-per-abi \
-            --target-platform android-arm,android-arm64,android-x64 \
-            --split-debug-info="$symbol_root/build" \
+            --target-platform android-arm64 \
             --no-pub
-          cp -- "$symbol_root"/build/*.symbols "$symbol_root/split/"
-          flutter --suppress-analytics build apk \
-            --release \
-            --target-platform android-arm,android-arm64,android-x64 \
-            --split-debug-info="$symbol_root/build" \
-            --no-pub
-          cp -- "$symbol_root"/build/*.symbols "$symbol_root/universal/"
+          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
-      - name: Verify all APK architectures and release hygiene
+      - name: Verify ARM64 APK ABI, native Rust library and signature
         run: |
           set -euo pipefail
           android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
           test -n "$android_sdk"
-          apksigner="$android_sdk/build-tools/36.0.0/apksigner"
-          test -x "$apksigner"
-          source_dir=apps/usque_gui/build/app/outputs/flutter-apk
+          apk="apps/usque_gui/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          test -s "$apk"
           base_version_code="$(sed -nE 's/^version: [^+]+\+([0-9]+)\r?$/\1/p' apps/usque_gui/pubspec.yaml)"
           [[ "$base_version_code" =~ ^[1-9][0-9]*$ ]]
-          declare -A abi_codes=(
-            [app-arm64-v8a-release.apk]=2
-            [app-armeabi-v7a-release.apk]=1
-            [app-x86_64-release.apk]=4
-            [app-release.apk]=0
-          )
-          declare -A expected_abis=(
-            [app-arm64-v8a-release.apk]="arm64-v8a"
-            [app-armeabi-v7a-release.apk]="armeabi-v7a"
-            [app-x86_64-release.apk]="x86_64"
-            [app-release.apk]="arm64-v8a armeabi-v7a x86_64"
-          )
-          count=0
-          for name in "${!expected_abis[@]}"; do
-            apk="$source_dir/$name"
-            test -s "$apk"
-            read -r -a package_abis <<< "${expected_abis[$name]}"
-            python tool/verify_android_apk.py --apk "$apk" \
-              --abis "${package_abis[@]}" \
-              --version-code "$((base_version_code * 1000 + abi_codes[$name]))" \
-              --aapt2 "$android_sdk/build-tools/36.0.0/aapt2" \
-              --zipalign "$android_sdk/build-tools/36.0.0/zipalign"
-            entries="$RUNNER_TEMP/$name.entries"
-            unzip -Z1 "$apk" > "$entries"
-            actual_abis="$(
-              sed -nE 's#^lib/([^/]+)/.*#\1#p' "$entries" |
-                sort -u |
-                paste -sd ' ' -
-            )"
-            test "$actual_abis" = "${expected_abis[$name]}" || {
-              echo "Unexpected ABI set in $name: $actual_abis" >&2
-              exit 1
-            }
-            for abi in ${expected_abis[$name]}; do
-              grep -q "^lib/$abi/libusque_android\.so$" "$entries"
-            done
-            if grep -Eq 'kernel_blob\.bin|libVkLayer_khronos_validation\.so' "$entries"; then
-              echo "$name contains a forbidden debug artifact." >&2
-              exit 1
-            fi
-            while IFS= read -r library; do
-              extracted="$RUNNER_TEMP/$(tr '/.' '__' <<<"$library")"
-              unzip -p "$apk" "$library" > "$extracted"
-              sections="$extracted.sections"
-              readelf --sections "$extracted" > "$sections"
-              if grep -q '\.debug_info' "$sections"; then
-                echo "$library in $name contains debug information." >&2
-                exit 1
-              fi
-            done < <(grep '/libusque_android\.so$' "$entries")
-            "$apksigner" verify --verbose --print-certs "$apk"
-            count=$((count + 1))
-          done
-          test "$count" -eq 4
-          echo "ANDROID_BUILD_OK=$source_dir"
+          python tool/verify_android_apk.py \
+            --apk "$apk" \
+            --abis arm64-v8a \
+            --version-code "$((base_version_code * 1000 + 2))" \
+            --aapt2 "$android_sdk/build-tools/36.0.0/aapt2" \
+            --zipalign "$android_sdk/build-tools/36.0.0/zipalign"
+          unzip -Z1 "$apk" > "$RUNNER_TEMP/arm64.entries"
+          grep -q '^lib/arm64-v8a/libusque_android\.so$' "$RUNNER_TEMP/arm64.entries"
+          if grep -Eq '^lib/(armeabi-v7a|x86_64)/' "$RUNNER_TEMP/arm64.entries"; then
+            echo "Non-arm64 native libraries found in ARM64 APK." >&2
+            exit 1
+          fi
+          if grep -Eq 'kernel_blob\.bin|libVkLayer_khronos_validation\.so' "$RUNNER_TEMP/arm64.entries"; then
+            echo "Debug artifacts found in release APK." >&2
+            exit 1
+          fi
+          unzip -p "$apk" lib/arm64-v8a/libusque_android.so > "$RUNNER_TEMP/libusque_android.so"
+          if readelf --sections "$RUNNER_TEMP/libusque_android.so" | grep -q '\.debug_info'; then
+            echo "Rust JNI library contains debug information." >&2
+            exit 1
+          fi
+          "$android_sdk/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk"
 
-      - name: Archive matching Android Flutter symbols separately
-        working-directory: apps/usque_gui
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
-          commit="$(git rev-parse HEAD)"
-          for abi in armeabi-v7a arm64-v8a x86_64; do
-            python ../../tool/archive_flutter_symbols.py archive \
-              --artifact "build/app/outputs/flutter-apk/app-$abi-release.apk" \
-              --symbols "$RUNNER_TEMP/flutter-symbols-android/split" \
-              --output "$RUNNER_TEMP/flutter-symbol-archives" \
-              --version "$version" --source-commit "$commit" \
-              --platform android --kind split --architecture "$abi"
-          done
-          python ../../tool/archive_flutter_symbols.py archive \
-            --artifact build/app/outputs/flutter-apk/app-release.apk \
-            --symbols "$RUNNER_TEMP/flutter-symbols-android/universal" \
-            --output "$RUNNER_TEMP/flutter-symbol-archives" \
-            --version "$version" --source-commit "$commit" \
-            --platform android --kind universal \
-            --architecture armeabi-v7a,arm64-v8a,x86_64
-
-      - name: Preserve matching Android Flutter symbols separately
+      - name: Upload only one ARM64 APK, retain for one day
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: usque-flutter-symbols-android
-          path: ${{ runner.temp }}/flutter-symbol-archives
+          name: usque-native-wireguard-arm64
+          path: apps/usque_gui/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          compression-level: 0
           if-no-files-found: error
-          retention-days: 90
-
-      - name: Publish signed experimental Android APKs
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: usque-android-wg-carrier-picker-preview-apks
-          path: apps/usque_gui/build/app/outputs/flutter-apk/*.apk
-          if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
       - name: Remove ephemeral identity and compile output
         if: ${{ always() }}

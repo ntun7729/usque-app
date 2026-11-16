@@ -43,6 +43,10 @@ class _OuterWarpLibraryEngine extends FakeEngineClient
 void main() {
   testWidgets('advanced settings reveals native WARP profile picker when supported',
       (tester) async {
+    tester.view.physicalSize = const Size(1000, 2300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     SharedPreferences.setMockInitialValues({'update_checks_enabled': false});
     final controller = AppController(_OuterWarpLibraryEngine());
     await controller.initialize();

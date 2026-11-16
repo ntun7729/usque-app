@@ -161,6 +161,7 @@ internal object NetworkQualityFields {
             "chain_openvpn_udp",
             "chain_wireguard",
             "chain_warp_wireguard",
+            "native_warp_wireguard",
             "chain_proton_vpn",
             "proton_account_warp_fallback",
             "proton_server_switching",

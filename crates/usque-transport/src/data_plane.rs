@@ -58,6 +58,21 @@ struct StartupContext {
     telemetry: crate::ConnectionTelemetry,
     cancellation: CancellationToken,
     deadline: Option<Instant>,
+    native_wireguard: Option<usque_core::chain_exit::WireGuardProfile>,
+}
+
+/// A native selection must never be mistaken for a regular MASQUE startup.
+fn validate_native_warp_preparation(
+    profile: &Profile,
+    has_native_wireguard: bool,
+) -> Result<(), TransportError> {
+    if (profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard)
+        != has_native_wireguard
+        || has_native_wireguard && profile.data_plane != DataPlaneMode::ConnectIp
+    {
+        return Err(TransportError::InvalidIdentity);
+    }
+    Ok(())
 }
 
 struct GateRuntime {
@@ -380,6 +395,7 @@ impl DataPlaneRuntime {
         policy: Arc<GeoDirectPolicy>,
         telemetry: crate::ConnectionTelemetry,
     ) -> Result<Self, TransportError> {
+        validate_native_warp_preparation(profile, false)?;
         policy.start_ads_watcher();
         if profile.chain_enabled() {
             // Every caller must supply a validated pinned profile explicitly.
@@ -442,6 +458,64 @@ impl DataPlaneRuntime {
         .await
     }
 
+    /// The native actor feeds the same packet stack that MASQUE and all seven
+    /// supported chain exits consume. It does not create another TUN owner.
+    #[cfg(feature = "wireguard")]
+    async fn start_native_with_geo_policy_and_telemetry(
+        profile: &Profile,
+        identity: MasqueTlsIdentity,
+        protector: Arc<dyn SocketProtector>,
+        policy: Arc<GeoDirectPolicy>,
+        wireguard: usque_core::chain_exit::WireGuardProfile,
+        cancellation: CancellationToken,
+    ) -> Result<Self, TransportError> {
+        validate_native_warp_preparation(profile, true)?;
+        if profile.chain_enabled() {
+            return Err(TransportError::VpnGate(GateFailure::Configuration));
+        }
+        policy.start_ads_watcher();
+        let endpoint_pool = identity.endpoint_pool();
+        let endpoint_preset_tier = identity.endpoint_preset_tier().ok();
+        let mtu = profile.mtu.min(wireguard.mtu);
+        let (tunnel, (ipv4, ipv6)) =
+            crate::native_warp_wireguard::NativeWarpWireguard::start(
+                wireguard,
+                Arc::clone(&protector),
+                cancellation,
+            )
+            .await?;
+        let warp_network = FinalNetworkParameters {
+            ipv4: Some(ipv4),
+            ipv6: (!ipv6.is_unspecified()).then_some(ipv6),
+            mtu,
+            dns_servers: profile.dns_servers.clone(),
+        };
+        let mut effective = profile.clone();
+        effective.mtu = mtu;
+        let runtime = MasqueRuntime::start_over_bound_tunnel(
+            &effective,
+            tunnel,
+            (ipv4, ipv6),
+            protector,
+            policy,
+            None,
+        )
+        .await?;
+        Ok(Self {
+            endpoint_pool,
+            endpoint_preset_tier,
+            inner: RuntimeInner::ConnectIp(Box::new(runtime)),
+            gate: None,
+            warp_network,
+            final_blocked: false,
+            stopped: false,
+            transition_status: GateStatus::default(),
+            pending_frontends: None,
+            activation_deadline: None,
+            prebound_frontends: None,
+        })
+    }
+
     async fn start_cancellable(
         profile: &Profile,
         identity: MasqueTlsIdentity,
@@ -450,14 +524,40 @@ impl DataPlaneRuntime {
         policy: Arc<GeoDirectPolicy>,
         context: StartupContext,
     ) -> Result<Self, TransportError> {
-        let startup = Self::start_with_geo_policy_and_telemetry(
-            profile,
-            identity,
-            protector,
-            refresher,
-            policy,
-            context.telemetry.clone(),
-        );
+        let native_wireguard = context.native_wireguard;
+        let connection_cancel = context.cancellation.clone();
+        let telemetry = context.telemetry.clone();
+        let startup = async {
+            validate_native_warp_preparation(profile, native_wireguard.is_some())?;
+            if let Some(wireguard) = native_wireguard {
+                #[cfg(feature = "wireguard")]
+                {
+                    return Self::start_native_with_geo_policy_and_telemetry(
+                        profile,
+                        identity,
+                        protector,
+                        policy,
+                        wireguard,
+                        connection_cancel,
+                    )
+                    .await;
+                }
+                #[cfg(not(feature = "wireguard"))]
+                {
+                    let _ = wireguard;
+                    return Err(TransportError::InvalidIdentity);
+                }
+            }
+            Self::start_with_geo_policy_and_telemetry(
+                profile,
+                identity,
+                protector,
+                refresher,
+                policy,
+                telemetry,
+            )
+            .await
+        };
         tokio::pin!(startup);
         let failure = tokio::select! {
             biased;
@@ -486,6 +586,29 @@ impl DataPlaneRuntime {
         gate: VpnGateStart,
         telemetry: crate::ConnectionTelemetry,
     ) -> Result<Self, TransportError> {
+        Self::start_with_vpngate_and_telemetry_prepared(
+            profile, identity, protector, refresher, policy, gate, None, telemetry,
+        )
+        .await
+    }
+
+    /// Android passes a validated, decrypted outer WireGuard profile in memory.
+    /// The independent final chain selection stays in VpnGateStart.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Android startup provides a secured outer WireGuard profile separately from the final chain"
+    )]
+    pub async fn start_with_vpngate_and_telemetry_prepared(
+        profile: &Profile,
+        identity: MasqueTlsIdentity,
+        protector: Arc<dyn SocketProtector>,
+        refresher: Option<Arc<dyn EndpointPinRefresher>>,
+        policy: Arc<GeoDirectPolicy>,
+        gate: VpnGateStart,
+        native_wireguard: Option<usque_core::chain_exit::WireGuardProfile>,
+        telemetry: crate::ConnectionTelemetry,
+    ) -> Result<Self, TransportError> {
+        validate_native_warp_preparation(profile, native_wireguard.is_some())?;
         policy.start_ads_watcher();
         let VpnGateStart {
             continuous,
@@ -512,6 +635,7 @@ impl DataPlaneRuntime {
                     telemetry,
                     cancellation,
                     deadline: (!continuous).then_some(underlay_deadline),
+                    native_wireguard,
                 },
             )
             .await;
@@ -548,6 +672,7 @@ impl DataPlaneRuntime {
                 telemetry,
                 cancellation: cancellation.clone(),
                 deadline: (!continuous).then_some(underlay_deadline),
+                native_wireguard,
             },
         )
         .await?;

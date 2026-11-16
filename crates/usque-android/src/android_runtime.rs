@@ -720,6 +720,12 @@ async fn run(
     }
     update_health(&status, &tunnel, &profile);
     update_frontends(&status, &tunnel);
+    if profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard {
+        let network = tunnel.warp_network_parameters();
+        if let Ok(mut snapshot) = status.lock() {
+            snapshot.warp_network = Some(network);
+        }
+    }
     let _ = started.send(START_OK);
     let gate_context = GateContext {
         cache_dir,

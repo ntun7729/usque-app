@@ -13,6 +13,42 @@ import java.net.InetAddress
 
 class AndroidVpnConfigurationTest {
     @Test
+    fun nativeWarpSelectsNegotiatedTunWithoutChangingFinalChain() {
+        val legacy = AndroidVpnProfile.parse(jsonProfile().toString())
+        assertEquals("masque", legacy.warpUnderlay)
+        assertEquals(false, legacy.nativeWireguardUnderlay)
+        assertEquals(null, legacy.negotiatedNetworkKey)
+
+        val native = AndroidVpnProfile.parse(
+            jsonProfile().put("warp_underlay", "native_wireguard").toString(),
+        )
+        assertEquals("native_wireguard", native.warpUnderlay)
+        assertEquals(true, native.nativeWireguardUnderlay)
+        assertEquals("warp_network", native.negotiatedNetworkKey)
+
+        val nativeChain = AndroidVpnProfile.parse(
+            jsonProfile()
+                .put("warp_underlay", "native_wireguard")
+                .put("chain_exit", JSONObject().put("enabled", true).put("source", "proton_vpn"))
+                .toString(),
+        )
+        assertEquals(true, nativeChain.vpnGateEnabled)
+        assertEquals(true, nativeChain.nativeWireguardUnderlay)
+        assertEquals("final_network", nativeChain.negotiatedNetworkKey)
+
+        val masqueChain = AndroidVpnProfile.parse(
+            jsonProfile()
+                .put("chain_exit", JSONObject().put("enabled", true).put("source", "socks5_proxy"))
+                .toString(),
+        )
+        assertEquals("final_network", masqueChain.negotiatedNetworkKey)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AndroidVpnProfile.parse(jsonProfile().put("warp_underlay", "unknown").toString())
+        }
+    }
+
+    @Test
     fun adsToggleKeepsTunIdentityAndPhysicalDnsRequirements() {
         val before = AndroidVpnProfile.parse(jsonProfile().toString())
         val after =

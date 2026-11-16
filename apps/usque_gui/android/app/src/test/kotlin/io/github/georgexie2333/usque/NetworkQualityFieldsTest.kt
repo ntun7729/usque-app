@@ -11,6 +11,24 @@ import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicInteger
 
 class NetworkQualityFieldsTest {
+    @Test fun nativeWarpWireguardFlagIsForwardedWithoutPromotingInvalidValues() {
+        val key = "native_warp_wireguard"
+        assertEquals(
+            true,
+            NetworkQualityFields.capabilities("""{"native_warp_wireguard":true}""")[key],
+        )
+        for (payload in listOf(
+            null,
+            "{}",
+            """{"native_warp_wireguard":false}""",
+            """{"native_warp_wireguard":"true"}""",
+            """{"native_warp_wireguard":1}""",
+            "invalid",
+        )) {
+            assertEquals(false, NetworkQualityFields.capabilities(payload)[key])
+        }
+    }
+
     @Test fun expandedCapabilityObjectsPreserveSupportedFlags() {
         val source =
             JSONObject()

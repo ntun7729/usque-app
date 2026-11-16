@@ -19,6 +19,23 @@ import java.util.concurrent.TimeUnit
 
 class AndroidEngineMethodHandlerTest {
     @Test
+    fun nativeWarpWireguardAvailabilityTraversesAndroidMethodChannel() {
+        for ((native, expected) in listOf(
+            """{"native_warp_wireguard":true,"chain_warp_wireguard":true}""" to true,
+            """{"native_warp_wireguard":false,"chain_warp_wireguard":true}""" to false,
+            """{"chain_warp_wireguard":true}""" to false,
+            """{"native_warp_wireguard":"true"}""" to false,
+            null to false,
+        )) {
+            engineBridge.capabilitiesJson = native
+            val result = RecordingResult()
+            handler.handle(MethodCall("getCapabilities", null), result)
+            assertEquals(expected, (result.successValue as Map<*, *>)["native_warp_wireguard"])
+            assertEquals(1, result.completionCount)
+        }
+    }
+
+    @Test
     fun protonServerSwitchingCapabilityReachesFlutterOnlyWithExplicitNativeSupport() {
         val cases =
             listOf(

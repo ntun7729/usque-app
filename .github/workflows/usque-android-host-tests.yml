@@ -56,4 +56,4 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest --tests io.github.georgexie2333.usque.AndroidVpnConfigurationTest --no-daemon --stacktrace
+          ./gradlew :app:testDebugUnitTest --tests io.github.georgexie2333.usque.AndroidVpnConfigurationTest -x :app:buildRustAndroidDebug --no-daemon --stacktrace

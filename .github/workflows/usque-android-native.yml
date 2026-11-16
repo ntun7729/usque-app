@@ -5,6 +5,7 @@ on:
     branches:
       - feature/android-wg-udp
       - feature/android-wg-native-actor
+      - feature/android-wg-negotiated-tun
     paths:
       - 'crates/**'
       - 'apps/**'

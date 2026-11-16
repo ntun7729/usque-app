@@ -332,9 +332,7 @@ fn prepare_native_warp_profile(
         .native_warp_profile
         .as_ref()
         .ok_or_else(|| "Select a saved WARP WireGuard configuration first".to_owned())?;
-    if !selected.enabled
-        || selected.source != usque_core::chain_exit::ChainSource::WarpWireguard
-    {
+    if !selected.enabled || selected.source != usque_core::chain_exit::ChainSource::WarpWireguard {
         return Err("A WARP via WireGuard configuration is required".to_owned());
     }
     let cipher = super::chain_exit::profile_cipher()?;
@@ -720,6 +718,12 @@ async fn run(
     }
     update_health(&status, &tunnel, &profile);
     update_frontends(&status, &tunnel);
+    if profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard {
+        let network = tunnel.warp_network_parameters();
+        if let Ok(mut snapshot) = status.lock() {
+            snapshot.warp_network = Some(network);
+        }
+    }
     let _ = started.send(START_OK);
     let gate_context = GateContext {
         cache_dir,

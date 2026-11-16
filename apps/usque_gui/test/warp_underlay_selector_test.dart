@@ -178,4 +178,36 @@ void main() {
     final next = profile.copyWith(warpUnderlay: requested);
     expect(next.chainExit, chain);
   });
+  test('every final chain source survives a native WARP carrier switch', () {
+    const outer = ChainExitSettings(
+      enabled: true,
+      source: ChainSource.warpWireguard,
+      profileId: 'outer-warp',
+      revision: 'outer-revision',
+    );
+
+    for (final source in ChainSource.values) {
+      final exit = ChainExitSettings(
+        enabled: true,
+        source: source,
+        profileId: 'final-exit',
+        revision: 'final-revision',
+      );
+      final profile = UsqueProfile.defaultProfile()
+          .copyWith(chainExit: exit)
+          .copyWith(
+            warpUnderlay: WarpUnderlay.nativeWireGuard,
+            nativeWarpProfile: outer,
+          );
+      expect(profile.chainExit, exit, reason: source.wire);
+      expect(profile.nativeWarpProfile, outer, reason: source.wire);
+      final wire = profile.toMap();
+      expect(wire['warp_underlay'], 'native_wireguard');
+      final exitWire = wire['chain_exit'] as Map<String, Object?>;
+      expect(exitWire['source'], source.wire);
+      final restored = UsqueProfile.fromMap(wire);
+      expect(restored.chainExit, exit, reason: source.wire);
+      expect(restored.nativeWarpProfile, outer, reason: source.wire);
+    }
+  });
 }

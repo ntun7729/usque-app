@@ -1191,13 +1191,14 @@ class UsqueVpnService : VpnService() {
                     mainHandler.post { replyWithSnapshot(request) }
                     return false
                 }
+            val negotiatedNetworkKey = profile.negotiatedNetworkKey
             val network =
                 try {
-                    if (profile.vpnGateEnabled) {
+                    if (negotiatedNetworkKey != null) {
                         VpnGateNetwork.parse(
                             JSONObject(
-                                NativeEngine.snapshot() ?: error("Missing final network"),
-                            ).getJSONObject("final_network"),
+                                NativeEngine.snapshot() ?: error("Missing negotiated network"),
+                            ).getJSONObject(negotiatedNetworkKey),
                         )
                     } else {
                         null
@@ -1538,10 +1539,11 @@ class UsqueVpnService : VpnService() {
                 }
             if (!isCurrent(generation)) return
             postPhase(generation, "connectingH3", null)
+            val negotiatedNetworkKey = profile.negotiatedNetworkKey
             val proxyPassword = loadProxyPassword(profile.id, profileJson)
             val startResult =
                 try {
-                    if (profile.vpnGateEnabled) {
+                    if (negotiatedNetworkKey != null) {
                         NativeEngine.startProxy(profileJson, secret, proxyPassword, this)
                     } else {
                         NativeEngine.start(
@@ -1569,11 +1571,15 @@ class UsqueVpnService : VpnService() {
                 fail(generation, failure.code, failure.message, failure.gateStatus, failure.details)
                 return
             }
-            if (profile.vpnGateEnabled) {
+            if (negotiatedNetworkKey != null) {
                 val finalNetwork =
                     try {
-                        val native = awaitFinalNetwork(generation, JSONObject(profileJson).optBoolean("continuous"))
-                        val network = VpnGateNetwork.parse(native.getJSONObject("final_network"))
+                        val native = awaitFinalNetwork(
+                            generation,
+                            JSONObject(profileJson).optBoolean("continuous"),
+                            negotiatedNetworkKey,
+                        )
+                        val network = VpnGateNetwork.parse(native.getJSONObject(negotiatedNetworkKey))
                         if (!isCurrent(generation)) {
                             stopNativeRuntime(beginNativeStop())
                             return
@@ -2253,10 +2259,11 @@ class UsqueVpnService : VpnService() {
     private fun awaitFinalNetwork(
         generation: Long,
         continuous: Boolean,
+        networkKey: String = "final_network",
     ): JSONObject {
         while (isCurrent(generation)) {
             val snapshot = JSONObject(NativeEngine.snapshot() ?: error("Missing native snapshot"))
-            if (snapshot.optJSONObject("final_network") != null || !continuous ||
+            if (snapshot.optJSONObject(networkKey) != null || !continuous ||
                 snapshot.optString("phase") == "error"
             ) {
                 return snapshot

@@ -486,7 +486,12 @@ impl DataPlaneRuntime {
             ipv4: Some(ipv4),
             ipv6: (!ipv6.is_unspecified()).then_some(ipv6),
             mtu,
-            dns_servers: profile.dns_servers.clone(),
+            dns_servers: profile
+                .dns_servers
+                .iter()
+                .copied()
+                .filter(|dns| dns.is_ipv4() || !ipv6.is_unspecified())
+                .collect(),
         };
         let mut effective = profile.clone();
         effective.mtu = mtu;
@@ -1241,6 +1246,12 @@ impl DataPlaneRuntime {
         self.gate
             .as_ref()
             .map_or_else(|| self.warp_network.clone(), |gate| gate.network.clone())
+    }
+
+    /// The negotiated outer WARP packet addresses, independent of any final
+    /// OpenVPN, WireGuard, Proton, VPN Gate, HTTP or SOCKS5 chain exit.
+    pub fn warp_network_parameters(&self) -> FinalNetworkParameters {
+        self.warp_network.clone()
     }
     pub fn gate_status(&self) -> GateStatus {
         let mut status = if self.final_blocked {

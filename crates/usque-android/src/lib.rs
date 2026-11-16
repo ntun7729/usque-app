@@ -3275,6 +3275,8 @@ struct NativeSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     final_network: Option<usque_core::vpngate::FinalNetworkParameters>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    warp_network: Option<usque_core::vpngate::FinalNetworkParameters>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     data_plane: Option<usque_core::DataPlaneMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     l4: Option<usque_core::L4Snapshot>,
@@ -3326,6 +3328,7 @@ impl NativeSnapshot {
         self.active_frontends.clear();
         self.active_listeners.clear();
         self.final_network = None;
+        self.warp_network = None;
         self.tunnel_ipv4_available = false;
         self.tunnel_ipv6_available = false;
         self.download_bytes_per_second = 0;
@@ -3347,6 +3350,7 @@ impl NativeSnapshot {
             ads_rule_revision: String::new(),
             vpn_gate: None,
             final_network: None,
+            warp_network: None,
             data_plane: None,
             l4: None,
             phase: "disconnected".to_owned(),

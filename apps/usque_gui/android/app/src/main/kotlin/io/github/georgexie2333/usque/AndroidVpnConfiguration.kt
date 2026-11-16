@@ -21,6 +21,7 @@ internal data class AndroidVpnProfile(
     val bypassDomains: List<String> = emptyList(),
     val directDnsMode: String = "physicalSystem",
     val dataPlane: String = "connect_ip",
+    val warpUnderlay: String = "masque",
     val vpnGateEnabled: Boolean = false,
     val customChain: Boolean = false,
     val proxyChainEnabled: Boolean = false,
@@ -32,6 +33,18 @@ internal data class AndroidVpnProfile(
     // dual-stack regardless of which outer address family carries it.
     val dnsServers: List<InetAddress>
         get() = listOf(dnsIpv4, dnsIpv6)
+
+    val nativeWireguardUnderlay: Boolean
+        get() = warpUnderlay == "native_wireguard"
+
+    // Final chain network takes precedence over WARP's own network, even
+    // when the outer carrier uses native WireGuard instead of MASQUE.
+    val negotiatedNetworkKey: String?
+        get() = when {
+            vpnGateEnabled -> "final_network"
+            nativeWireguardUnderlay -> "warp_network"
+            else -> null
+        }
 
     // Keep DNS filtering ready so Ads changes never replace the VPN interface.
     val splitDnsEnabled: Boolean
@@ -56,6 +69,13 @@ internal data class AndroidVpnProfile(
             val source = JSONObject(profileJson)
             val dataPlane = source.optString("data_plane", "connect_ip")
             require(dataPlane in setOf("connect_ip", "l4_proxy")) { "Invalid data plane" }
+            val warpUnderlay = source.optString("warp_underlay", "masque")
+            require(warpUnderlay in setOf("masque", "native_wireguard")) {
+                "Invalid WARP underlay"
+            }
+            require(warpUnderlay == "masque" || dataPlane == "connect_ip") {
+                "Native WARP WireGuard requires CONNECT-IP"
+            }
             val id = source.requiredString("id", 64)
             require(profileIdPattern.matches(id)) { "Invalid profile ID" }
             val name = source.requiredString("name", 64)
@@ -158,6 +178,7 @@ internal data class AndroidVpnProfile(
                 mtu = mtu,
                 dnsMode = dnsMode,
                 dataPlane = dataPlane,
+                warpUnderlay = warpUnderlay,
                 vpnGateEnabled = ChainProfileFields.enabled(source),
                 customChain = ChainProfileFields.custom(source),
                 proxyChainEnabled = ChainProfileFields.proxy(source),

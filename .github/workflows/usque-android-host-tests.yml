@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/android-wg-native-actor
+      - feature/android-wg-negotiated-tun
     paths:
       - 'apps/usque_gui/android/app/src/main/kotlin/io/github/georgexie2333/usque/AndroidVpnConfiguration.kt'
       - 'apps/usque_gui/android/app/src/main/kotlin/io/github/georgexie2333/usque/UsqueVpnService.kt'

@@ -42,6 +42,10 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   late TransportPolicy _transport;
   late DataPlaneMode _dataPlane;
   late WarpUnderlay _warpUnderlay;
+  ChainExitSettings? _nativeWarpProfile;
+  List<ChainProfileSummary> _nativeWarpProfiles = const [];
+  bool _nativeWarpLoading = false;
+  String? _nativeWarpLibraryError;
   late CongestionControlAlgorithm _congestionControl;
   late TlsFingerprint _tlsFingerprint;
   late IpPolicy _ipPolicy;
@@ -66,7 +70,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   bool _loading = false;
   bool _saved = false;
   bool _validationAttempted = false;
-  List<Object> _baseline = [];
+  List<Object?> _baseline = [];
   late String _editingAccountId;
   final _fieldKeys = List.generate(
     7,
@@ -74,7 +78,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
   );
   final _focus = List.generate(9, (_) => FocusNode());
 
-  List<Object> get _values => [
+  List<Object?> get _values => [
     _usingPreset ||
             (!_zeroTrustEndpointIpsManaged &&
                 _endpointSelection == EndpointSelection.automatic)
@@ -97,6 +101,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     _transport,
     _dataPlane,
     _warpUnderlay,
+    _nativeWarpProfile,
     _congestionControl,
     _tlsFingerprint,
     _ipPolicy,
@@ -235,6 +240,35 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     _dnsV6 = TextEditingController();
     _load(widget.controller.activeProfile);
     widget.controller.addListener(_accountChanged);
+    unawaited(_refreshNativeWarpProfiles());
+  }
+
+  Future<void> _refreshNativeWarpProfiles() async {
+    if (_nativeWarpLoading ||
+        !(widget.controller.engineCapabilities?.nativeWarpWireguard ?? false)) {
+      return;
+    }
+    setState(() => _nativeWarpLoading = true);
+    try {
+      final response = await widget.controller.chainProfile({'action': 'list'});
+      if (!mounted) return;
+      setState(() {
+        _nativeWarpProfiles = response.profiles
+            .where((profile) => profile.source == ChainSource.warpWireguard)
+            .toList(growable: false);
+        _nativeWarpLibraryError = response.error == null
+            ? null
+            : widget.controller.strings.get('warp_native_load_failed');
+        _nativeWarpLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _nativeWarpLibraryError =
+            widget.controller.strings.get('warp_native_load_failed');
+        _nativeWarpLoading = false;
+      });
+    }
   }
 
   void _load(UsqueProfile profile, {bool baseline = true}) {
@@ -249,6 +283,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
     _transport = profile.transport;
     _dataPlane = profile.dataPlane;
     _warpUnderlay = profile.warpUnderlay;
+    _nativeWarpProfile = profile.nativeWarpProfile;
     _congestionControl = profile.congestionControl;
     _tlsFingerprint = profile.tlsFingerprint;
     _ipPolicy = profile.ipPolicy;
@@ -684,6 +719,38 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
           nativeLabel: strings.get('warp_underlay_native'),
           unavailableText: strings.get('warp_underlay_unavailable'),
         ),
+        if (_warpUnderlay == WarpUnderlay.nativeWireGuard) ...<Widget>[
+          const SizedBox(height: 16),
+          NativeWarpProfilePicker(
+            profiles: _nativeWarpProfiles,
+            selected: _nativeWarpProfile,
+            onSelected: _saving
+                ? null
+                : (selection) {
+                    setState(() {
+                      _nativeWarpProfile = selection;
+                      _saved = false;
+                      _validationError = null;
+                      _saveError = null;
+                    });
+                  },
+            label: strings.get('warp_native_profile_label'),
+            emptyMessage: strings.get('warp_native_no_profiles'),
+          ),
+          if (_nativeWarpLoading) const LinearProgressIndicator(),
+          if (_nativeWarpLibraryError != null)
+            Text(_nativeWarpLibraryError!),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: _nativeWarpLoading || _saving
+                  ? null
+                  : _refreshNativeWarpProfiles,
+              icon: const Icon(LucideIcons.refreshCw),
+              label: Text(strings.get('warp_native_refresh')),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) => SegmentedButton<String>(
@@ -974,6 +1041,20 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
         if (!mounted || !_ztEndpointsUnlocked) return;
       }
     }
+    if (_warpUnderlay == WarpUnderlay.nativeWireGuard) {
+      final strings = widget.controller.strings;
+      final error = !(widget.controller.engineCapabilities?.nativeWarpWireguard ?? false)
+          ? 'warp_underlay_unavailable'
+          : _dataPlane != DataPlaneMode.connectIp
+          ? 'warp_native_l4_unsupported'
+          : _nativeWarpProfile == null
+          ? 'warp_native_required'
+          : null;
+      if (error != null) {
+        setState(() => _validationError = strings.get(error));
+        return;
+      }
+    }
     if (_dataPlane == DataPlaneMode.l4Proxy &&
         !(widget.controller.engineCapabilities?.l4Available ?? false)) {
       setState(
@@ -1037,6 +1118,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
       'transport',
       'data_plane',
       'warp_underlay',
+      'native_warp_profile',
       'congestion_control',
       'tls_fingerprint',
       'ip_policy',
@@ -1072,6 +1154,8 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen> {
         transport: _transport,
         dataPlane: _dataPlane,
         warpUnderlay: _warpUnderlay,
+        nativeWarpProfile: _nativeWarpProfile,
+        clearNativeWarpProfile: _nativeWarpProfile == null,
         congestionControl: _congestionControl,
         tlsFingerprint: _tlsFingerprint,
         ipPolicy: _ipPolicy,

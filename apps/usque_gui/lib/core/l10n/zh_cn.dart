@@ -1,5 +1,11 @@
 /// Simplified Chinese UI catalog.
 const Map<String, String> kZhCnCatalog = <String, String>{
+  'warp_native_profile_label': '外层 WARP WireGuard 配置',
+  'warp_native_no_profiles': '请先在链式代理中导入或生成 WARP WireGuard 配置，然后刷新列表。',
+  'warp_native_refresh': '刷新 WARP 配置',
+  'warp_native_required': '请先选择已保存的 WARP WireGuard 配置。',
+  'warp_native_load_failed': '无法加载已保存的 WARP WireGuard 配置。',
+  'warp_native_l4_unsupported': '原生 WireGuard 需要 CONNECT-IP 模式。',
   'warp_underlay_title': 'WARP 连接协议',
   'warp_underlay_masque': 'MASQUE H3/H2',
   'warp_underlay_native': '原生 WireGuard UDP',

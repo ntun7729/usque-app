@@ -66,8 +66,7 @@ fn validate_native_warp_preparation(
     profile: &Profile,
     has_native_wireguard: bool,
 ) -> Result<(), TransportError> {
-    if (profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard)
-        != has_native_wireguard
+    if (profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard) != has_native_wireguard
         || has_native_wireguard && profile.data_plane != DataPlaneMode::ConnectIp
     {
         return Err(TransportError::InvalidIdentity);
@@ -477,13 +476,12 @@ impl DataPlaneRuntime {
         let endpoint_pool = identity.endpoint_pool();
         let endpoint_preset_tier = identity.endpoint_preset_tier().ok();
         let mtu = profile.mtu.min(wireguard.mtu);
-        let (tunnel, (ipv4, ipv6)) =
-            crate::native_warp_wireguard::NativeWarpWireguard::start(
-                wireguard,
-                Arc::clone(&protector),
-                cancellation,
-            )
-            .await?;
+        let (tunnel, (ipv4, ipv6)) = crate::native_warp_wireguard::NativeWarpWireguard::start(
+            wireguard,
+            Arc::clone(&protector),
+            cancellation,
+        )
+        .await?;
         let warp_network = FinalNetworkParameters {
             ipv4: Some(ipv4),
             ipv6: (!ipv6.is_unspecified()).then_some(ipv6),
@@ -549,12 +547,7 @@ impl DataPlaneRuntime {
                 }
             }
             Self::start_with_geo_policy_and_telemetry(
-                profile,
-                identity,
-                protector,
-                refresher,
-                policy,
-                telemetry,
+                profile, identity, protector, refresher, policy, telemetry,
             )
             .await
         };

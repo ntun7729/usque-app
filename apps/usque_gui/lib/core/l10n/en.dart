@@ -1,5 +1,12 @@
 /// English UI catalog.
 const Map<String, String> kEnCatalog = <String, String>{
+  'warp_native_profile_label': 'Outer WARP WireGuard profile',
+  'warp_native_no_profiles':
+      'Import or generate a WARP via WireGuard profile under Chain Proxy, then refresh.',
+  'warp_native_refresh': 'Refresh WARP profiles',
+  'warp_native_required': 'Choose a saved WARP WireGuard configuration first.',
+  'warp_native_load_failed': 'Could not load saved WARP WireGuard configurations.',
+  'warp_native_l4_unsupported': 'Native WireGuard requires CONNECT-IP mode.',
   'warp_underlay_title': 'WARP connection',
   'warp_underlay_masque': 'MASQUE H3/H2',
   'warp_underlay_native': 'Native WireGuard UDP',

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/android-wg-native-actor
+      - feature/android-wg-negotiated-tun
     paths:
       - 'apps/usque_gui/lib/**'
       - 'apps/usque_gui/test/warp_underlay_selector_test.dart'

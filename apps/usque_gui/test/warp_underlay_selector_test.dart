@@ -25,6 +25,52 @@ void main() {
     expect(find.text('Native WireGuard UDP'), findsOneWidget);
   });
 
+  testWidgets('native WARP profile picker filters out final chain proxy sources',
+      (tester) async {
+    final profiles = [
+      const ChainProfileSummary(
+        id: 'warp-id',
+        revision: 'warp-revision',
+        editRevision: 'warp-edit',
+        name: 'WARP UDP 500',
+        protocol: 'wireguard',
+        host: '162.159.192.17',
+        port: 500,
+        source: ChainSource.warpWireguard,
+      ),
+      const ChainProfileSummary(
+        id: 'proxy-id',
+        revision: 'proxy-revision',
+        editRevision: 'proxy-edit',
+        name: 'SOCKS5 final exit',
+        protocol: 'socks5',
+        host: '127.0.0.1',
+        port: 1080,
+        source: ChainSource.socks5Proxy,
+      ),
+    ];
+    ChainExitSettings? selected;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: NativeWarpProfilePicker(
+          profiles: profiles,
+          selected: null,
+          onSelected: (value) => selected = value,
+        ),
+      ),
+    ));
+    await tester.tap(find.byKey(const ValueKey('native-warp-profile-picker')));
+    await tester.pumpAndSettle();
+    expect(find.text('WARP UDP 500').last, findsOneWidget);
+    expect(find.text('SOCKS5 final exit'), findsNothing);
+    await tester.tap(find.text('WARP UDP 500').last);
+    await tester.pumpAndSettle();
+    expect(selected?.profileId, 'warp-id');
+    expect(selected?.revision, 'warp-revision');
+    expect(selected?.source, ChainSource.warpWireguard);
+    expect(selected?.enabled, isTrue);
+  });
+
   testWidgets('native WARP WireGuard is visible but disabled without runtime support',
       (tester) async {
     WarpUnderlay? requested;

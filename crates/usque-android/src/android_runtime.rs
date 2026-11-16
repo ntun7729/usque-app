@@ -160,15 +160,19 @@ fn spawn_runtime(
         },
         None => None,
     };
-    // Until the native packet actor is integrated, never pretend that a
-    // requested WireGuard outer connection is a healthy MASQUE session.
-    if profile.warp_underlay == usque_core::WarpUnderlay::NativeWireGuard {
-        let mut snapshot = NativeSnapshot::disconnected();
-        snapshot.phase = "error".to_owned();
-        snapshot.error_code = Some("NATIVE_WARP_WIREGUARD_UNAVAILABLE".to_owned());
-        remember_last_start_error(snapshot);
-        return START_TRANSPORT_FAILURE;
-    }
+    // A native selection only proceeds with an encrypted library reference.
+    // No automatic fallback to the ordinary MASQUE socket is permitted.
+    let native_wireguard = match prepare_native_warp_profile(&profile, &geo_cache_dir) {
+        Ok(native) => native,
+        Err(message) => {
+            let mut snapshot = NativeSnapshot::disconnected();
+            snapshot.phase = "error".to_owned();
+            snapshot.error_code = Some("NATIVE_WARP_PROFILE_UNAVAILABLE".to_owned());
+            snapshot.warning = Some(message);
+            remember_last_start_error(snapshot);
+            return START_INVALID_PROFILE;
+        }
+    };
     let tls_identity = match MasqueTlsIdentity::from_warp_identity(&identity) {
         Ok(identity) => identity,
         Err(_) => return START_TRANSPORT_FAILURE,
@@ -253,6 +257,7 @@ fn spawn_runtime(
                 protector,
                 geo_policy,
                 selected_gate,
+                native_wireguard,
                 geo_cache_dir,
                 pin_refresher,
                 thread_cancel,
@@ -312,6 +317,49 @@ fn spawn_runtime(
         remember_last_start_error(failure);
     }
     result
+}
+
+/// Resolve the outer WARP WireGuard profile from the same encrypted library
+/// that chain exits use, without consuming or replacing the selected exit.
+fn prepare_native_warp_profile(
+    profile: &Profile,
+    cache_dir: &Path,
+) -> Result<Option<usque_core::chain_exit::WireGuardProfile>, String> {
+    if profile.warp_underlay == usque_core::WarpUnderlay::Masque {
+        return Ok(None);
+    }
+    let selected = profile
+        .native_warp_profile
+        .as_ref()
+        .ok_or_else(|| "Select a saved WARP WireGuard configuration first".to_owned())?;
+    if !selected.enabled
+        || selected.source != usque_core::chain_exit::ChainSource::WarpWireguard
+    {
+        return Err("A WARP via WireGuard configuration is required".to_owned());
+    }
+    let cipher = super::chain_exit::profile_cipher()?;
+    let mut isolated = profile.clone();
+    isolated.vpn_gate.enabled = false;
+    isolated.chain_exit = Some(selected.clone());
+    let (_, prepared) =
+        usque_core::chain_exit::prepare_selection(cache_dir, &isolated, cipher.as_ref())
+            .map_err(|_| "Saved WARP WireGuard configuration could not be read".to_owned())?
+            .ok_or_else(|| "Saved WARP WireGuard configuration is missing".to_owned())?;
+    if !prepared
+        .summary
+        .as_ref()
+        .is_some_and(|summary| summary.source == usque_core::chain_exit::ChainSource::WarpWireguard)
+    {
+        return Err("Selected configuration is not a WARP WireGuard profile".to_owned());
+    }
+    match prepared.custom.as_deref() {
+        Some(usque_core::chain_exit::ValidatedProfile::WireGuard(wg))
+            if wg.endpoint.address().is_some() =>
+        {
+            Ok(Some(wg.clone()))
+        }
+        _ => Err("Selected WARP WireGuard configuration has no valid UDP endpoint".to_owned()),
+    }
 }
 
 fn load_geo_direct_policy(profile: &Profile, cache_dir: &Path) -> Result<GeoDirectPolicy, String> {
@@ -540,6 +588,7 @@ async fn run(
         usque_core::vpngate::ServerSummary,
         usque_core::vpngate::PreparedProfile,
     )>,
+    native_wireguard: Option<usque_core::chain_exit::WireGuardProfile>,
     cache_dir: PathBuf,
     pin_refresher: Arc<dyn EndpointPinRefresher>,
     cancellation: CancellationToken,
@@ -593,7 +642,7 @@ async fn run(
     }));
     let startup_telemetry = usque_transport::ConnectionTelemetry::default();
     let mut tunnel = {
-        let startup = Box::pin(DataPlaneRuntime::start_with_vpngate_and_telemetry(
+        let startup = Box::pin(DataPlaneRuntime::start_with_vpngate_and_telemetry_prepared(
             &profile,
             identity,
             protector,
@@ -610,6 +659,7 @@ async fn run(
                     .and_then(|value| *value)
                     .map(tokio::time::Instant::from_std),
             },
+            native_wireguard,
             startup_telemetry.clone(),
         ));
         tokio::pin!(startup);

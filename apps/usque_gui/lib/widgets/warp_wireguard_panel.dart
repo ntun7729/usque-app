@@ -139,7 +139,7 @@ class WarpWireguardPanelState extends State<WarpWireguardPanel> {
     try {
       final result = await _app.warpWireguard({
         'action': action,
-        'tunnel_mode': _tunnelMode,
+        if (action == 'select_mode') 'tunnel_mode': _tunnelMode,
         if (action == 'cancel' && _jobId != null) 'job_id': _jobId,
       });
       if (!mounted) return;

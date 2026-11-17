@@ -174,24 +174,18 @@ fn explicit_clear_rejects_non_directory_sidecar_paths() {
 
 #[test]
 fn selectable_warp_tunnel_mode_supports_masque_and_wireguard_requests() {
-    use usque_core::config::data_plane::WarpTunnelMode;
-
     let default_req = Request::parse(r#"{"action":"generate"}"#).unwrap();
     assert_eq!(default_req.effective_tunnel_mode(), WarpTunnelMode::Masque);
 
-    let wg_req =
-        Request::parse(r#"{"action":"select_mode","tunnel_mode":"wireguard"}"#).unwrap();
+    let wg_req = Request::parse(r#"{"action":"select_mode","tunnel_mode":"wireguard"}"#).unwrap();
     assert!(!wg_req.needs_network());
     assert_eq!(wg_req.effective_tunnel_mode(), WarpTunnelMode::Wireguard);
     assert_eq!(wg_req.effective_tunnel_mode().default_port(), 2408);
 
-    let masque_req =
-        Request::parse(r#"{"action":"select_mode","tunnel_mode":"masque"}"#).unwrap();
+    let masque_req = Request::parse(r#"{"action":"select_mode","tunnel_mode":"masque"}"#).unwrap();
     assert!(!masque_req.needs_network());
     assert_eq!(masque_req.effective_tunnel_mode(), WarpTunnelMode::Masque);
     assert_eq!(masque_req.effective_tunnel_mode().default_port(), 443);
 
-    assert!(
-        Request::parse(r#"{"action":"select_mode","tunnel_mode":"unknown"}"#).is_err()
-    );
+    assert!(Request::parse(r#"{"action":"select_mode","tunnel_mode":"unknown"}"#).is_err());
 }

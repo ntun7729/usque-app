@@ -20,39 +20,6 @@ impl DataPlaneMode {
     }
 }
 
-/// Selectable WARP tunnel protocol mode alongside MASQUE.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum WarpTunnelMode {
-    #[default]
-    Masque,
-    Wireguard,
-}
-
-impl WarpTunnelMode {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Masque => "masque",
-            Self::Wireguard => "wireguard",
-        }
-    }
-
-    pub const fn is_masque(self) -> bool {
-        matches!(self, Self::Masque)
-    }
-
-    pub const fn is_wireguard(self) -> bool {
-        matches!(self, Self::Wireguard)
-    }
-
-    pub const fn default_port(self) -> u16 {
-        match self {
-            Self::Masque => 443,
-            Self::Wireguard => 2408,
-        }
-    }
-}
-
 pub const CONSUMER_L4_SNI: &str = "consumer-masque-proxy.cloudflareclient.com";
 pub const ZERO_TRUST_L4_SNI: &str = "zt-masque-proxy.cloudflareclient.com";
 
@@ -78,31 +45,8 @@ mod tests {
                 mode
             );
         }
-        for invalid in ["\"auto\"", "\"h3\"", "\"l4\"", "null", "3"] {
+        for invalid in [r#""auto""#, r#""h3""#, r#""l4""#, "null", "3"] {
             assert!(serde_json::from_str::<DataPlaneMode>(invalid).is_err());
-        }
-    }
-
-    #[test]
-    fn warp_tunnel_mode_is_explicit_and_unknown_values_fail_closed() {
-        for (mode, wire, port) in [
-            (WarpTunnelMode::Masque, "masque", 443),
-            (WarpTunnelMode::Wireguard, "wireguard", 2408),
-        ] {
-            let encoded = serde_json::to_string(&mode).unwrap();
-            assert_eq!(encoded, format!("\"{wire}\""));
-            assert_eq!(
-                serde_json::from_str::<WarpTunnelMode>(&encoded).unwrap(),
-                mode
-            );
-            assert_eq!(mode.as_str(), wire);
-            assert_eq!(mode.default_port(), port);
-        }
-        assert!(WarpTunnelMode::default().is_masque());
-        assert!(!WarpTunnelMode::default().is_wireguard());
-        assert!(WarpTunnelMode::Wireguard.is_wireguard());
-        for invalid in ["\"auto\"", "\"wg\"", "\"quic\"", "null", "1"] {
-            assert!(serde_json::from_str::<WarpTunnelMode>(invalid).is_err());
         }
     }
 

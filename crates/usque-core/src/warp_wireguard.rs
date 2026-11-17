@@ -1,7 +1,40 @@
 //! Commands and process-local status for WARP WireGuard configuration generation.
-use crate::{chain_exit::ImportError, config::data_plane::WarpTunnelMode};
+use crate::chain_exit::ImportError;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+/// Selectable WARP tunnel protocol mode alongside MASQUE.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum WarpTunnelMode {
+    #[default]
+    Masque,
+    Wireguard,
+}
+
+impl WarpTunnelMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Masque => "masque",
+            Self::Wireguard => "wireguard",
+        }
+    }
+
+    pub const fn is_masque(self) -> bool {
+        matches!(self, Self::Masque)
+    }
+
+    pub const fn is_wireguard(self) -> bool {
+        matches!(self, Self::Wireguard)
+    }
+
+    pub const fn default_port(self) -> u16 {
+        match self {
+            Self::Masque => 443,
+            Self::Wireguard => 2408,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]

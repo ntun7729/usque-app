@@ -19,6 +19,9 @@ class WarpWireguardPanel extends StatefulWidget {
     required this.onEndpoint,
     required this.onValid,
     required this.onGenerated,
+    this.showModeSelector = false,
+    this.initialTunnelMode = 'wireguard',
+    this.onTunnelModeChanged,
     super.key,
   });
   final AppController controller;
@@ -26,6 +29,9 @@ class WarpWireguardPanel extends StatefulWidget {
   final ValueChanged<ChainEndpoint?> onEndpoint;
   final ValueChanged<bool> onValid;
   final VoidCallback onGenerated;
+  final bool showModeSelector;
+  final String initialTunnelMode;
+  final ValueChanged<String>? onTunnelModeChanged;
   @override
   State<WarpWireguardPanel> createState() => WarpWireguardPanelState();
 }
@@ -35,10 +41,17 @@ class WarpWireguardPanelState extends State<WarpWireguardPanel> {
     if (!_running) await _command('generate');
   }
 
+  Future<void> selectTunnelMode(String mode) async {
+    if (mode != 'masque' && mode != 'wireguard') return;
+    setState(() => _tunnelMode = mode);
+    widget.onTunnelModeChanged?.call(mode);
+  }
+
   final _ip = TextEditingController(), _port = TextEditingController();
   Timer? _timer;
   Map<Object?, Object?> _response = const {};
   bool _busy = false, _invalid = false;
+  late String _tunnelMode = widget.initialTunnelMode;
   String? _jobId, _error, _generated;
   Map<Object?, Object?> get _job =>
       _response['job'] as Map<Object?, Object?>? ?? const {};
@@ -158,6 +171,21 @@ class WarpWireguardPanelState extends State<WarpWireguardPanel> {
       title: 'WARP via WireGuard',
       gap: 12,
       children: [
+        if (widget.showModeSelector)
+          SegmentedButton<String>(
+            key: const ValueKey('warp-tunnel-mode-selector'),
+            segments: const [
+              ButtonSegment<String>(value: 'masque', label: Text('MASQUE')),
+              ButtonSegment<String>(
+                value: 'wireguard',
+                label: Text('WireGuard WARP'),
+              ),
+            ],
+            selected: <String>{_tunnelMode},
+            onSelectionChanged: _busy
+                ? null
+                : (selection) => unawaited(selectTunnelMode(selection.first)),
+          ),
         // The endpoint belongs to a selected configuration; until one is
         // chosen there is nothing to edit, so the fields stay out of view.
         if (widget.endpoint == null)

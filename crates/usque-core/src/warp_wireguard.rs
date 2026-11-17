@@ -1,5 +1,5 @@
 //! Commands and process-local status for WARP WireGuard configuration generation.
-use crate::chain_exit::ImportError;
+use crate::{chain_exit::ImportError, config::data_plane::WarpTunnelMode};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -11,6 +11,8 @@ pub struct Request {
     pub job_id: Option<Uuid>,
     #[serde(default)]
     pub name: String,
+    #[serde(default)]
+    pub tunnel_mode: WarpTunnelMode,
 }
 impl Request {
     pub fn parse(text: &str) -> Result<Self, ImportError> {
@@ -22,8 +24,10 @@ impl Request {
         Ok(value)
     }
     pub fn validate(&self) -> Result<(), ImportError> {
-        if !matches!(self.action.as_str(), "generate" | "cancel" | "get")
-            || self.name.chars().count() > 64
+        if !matches!(
+            self.action.as_str(),
+            "generate" | "select_mode" | "cancel" | "get"
+        ) || self.name.chars().count() > 64
             || self.name.chars().any(char::is_control)
             || (self.action == "cancel" && self.job_id.is_none())
         {
@@ -33,6 +37,9 @@ impl Request {
     }
     pub fn needs_network(&self) -> bool {
         self.action == "generate"
+    }
+    pub const fn effective_tunnel_mode(&self) -> WarpTunnelMode {
+        self.tunnel_mode
     }
 }
 
@@ -57,6 +64,8 @@ impl Job {
 pub struct Response {
     pub job: Option<Job>,
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tunnel_mode: Option<WarpTunnelMode>,
 }
 
 pub fn error(reason: &str) -> ImportError {

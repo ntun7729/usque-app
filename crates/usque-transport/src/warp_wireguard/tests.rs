@@ -124,3 +124,26 @@ fn unavailable_underlay_stops_generation_without_any_physical_fallback() {
     assert!(job.profile_id.is_none());
     assert!(directory.path().read_dir().unwrap().next().is_none());
 }
+
+#[test]
+fn selectable_tunnel_mode_command_returns_selected_mode_without_network() {
+    let directory = tempfile::tempdir().unwrap();
+    let manager = manager(directory.path());
+    for (wire, expected) in [
+        (
+            "masque",
+            usque_core::config::data_plane::WarpTunnelMode::Masque,
+        ),
+        (
+            "wireguard",
+            usque_core::config::data_plane::WarpTunnelMode::Wireguard,
+        ),
+    ] {
+        let request =
+            Request::parse(&format!(r#"{{"action":"select_mode","tunnel_mode":"{wire}"}}"#))
+                .unwrap();
+        let response = manager.command(request, None).unwrap();
+        assert_eq!(response.tunnel_mode, Some(expected));
+        assert!(response.error.is_none());
+    }
+}

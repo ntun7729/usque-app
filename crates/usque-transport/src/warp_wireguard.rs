@@ -155,7 +155,14 @@ impl Manager {
         {
             return Err(error("job_not_found"));
         }
-        Ok(Response { job, error: None })
+        let tunnel_mode = (request.action == "select_mode"
+            || request.tunnel_mode != usque_core::config::data_plane::WarpTunnelMode::Masque)
+            .then_some(request.tunnel_mode);
+        Ok(Response {
+            job,
+            error: None,
+            tunnel_mode,
+        })
     }
     async fn run(
         &self,

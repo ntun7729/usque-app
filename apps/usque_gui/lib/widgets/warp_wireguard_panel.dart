@@ -19,8 +19,8 @@ class WarpWireguardPanel extends StatefulWidget {
     required this.onEndpoint,
     required this.onValid,
     required this.onGenerated,
-    this.showModeSelector = false,
-    this.initialTunnelMode = 'wireguard',
+    this.showModeSelector = true,
+    this.initialTunnelMode = 'masque',
     this.onTunnelModeChanged,
     super.key,
   });
@@ -45,6 +45,7 @@ class WarpWireguardPanelState extends State<WarpWireguardPanel> {
     if (mode != 'masque' && mode != 'wireguard') return;
     setState(() => _tunnelMode = mode);
     widget.onTunnelModeChanged?.call(mode);
+    await _command('select_mode');
   }
 
   final _ip = TextEditingController(), _port = TextEditingController();
@@ -138,6 +139,7 @@ class WarpWireguardPanelState extends State<WarpWireguardPanel> {
     try {
       final result = await _app.warpWireguard({
         'action': action,
+        'tunnel_mode': _tunnelMode,
         if (action == 'cancel' && _jobId != null) 'job_id': _jobId,
       });
       if (!mounted) return;
